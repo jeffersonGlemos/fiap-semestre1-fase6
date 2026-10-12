@@ -37,6 +37,12 @@ compilador precisa de dimensões fixas. A saída tem forma `(1, 25200, 11)`: 4 c
 objectness e as 6 classes. O repositório do YOLOv5 é reaproveitado do cache do `torch.hub` (ou
 clonado na primeira execução); o caminho de um clone local pode ser informado com `--yolov5`.
 
+Antes de chamar o `export.py`, o script grava a cópia `best_portavel.pt` ao lado do `best.pt` e
+exporta a partir dela. Treinei no Colab com Python 3.13 em Linux, e o checkpoint guarda um objeto
+`pathlib` que não carrega em Python 3.12 (`pathlib._local`) nem no Windows (`PosixPath`); na cópia,
+esse objeto virou texto. Como o ONNX não depende disso, o nome de saída continua `best.onnx`. Para gerar
+só a cópia, sem exportar, usei `python exportar_modelo.py --pesos best.pt --so-portavel`.
+
 Validei o script com o `yolov5s.pt` do COCO no Mac: o ONNX saiu com opset 11 e saída `(1, 25200, 85)`,
 e as detecções do ONNX Runtime coincidiram com as do PyTorch nos mesmos quadros (por exemplo, `cow`
 com confiança 0,94 nos dois). A opção `--formato coreml` também gera um `.mlpackage` para comparação

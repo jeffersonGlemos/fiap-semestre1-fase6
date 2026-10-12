@@ -281,9 +281,11 @@ class ModeloLocal:
             self.execucao = f"onnx:{self.modelo.provedor}"   # ex.: onnx:CoreMLExecutionProvider
         else:
             import torch                                     # import tardio: o modo PLUS não usa PyTorch
+            from backends.compat import carregamento_portavel
             disp = escolher_dispositivo(dispositivo)
-            self.modelo = torch.hub.load("ultralytics/yolov5", "custom", path=str(caminho), device=disp,
-                                         trust_repo=True)   # evita a confirmação interativa das versões novas do torch
+            with carregamento_portavel():                    # best.pt do Colab (Python 3.13, Linux) em outro Python/SO
+                self.modelo = torch.hub.load("ultralytics/yolov5", "custom", path=str(caminho), device=disp,
+                                             trust_repo=True)   # evita a confirmação interativa das versões novas do torch
             self.modelo.conf = conf
             self.nomes = self.modelo.names                   # nomes das classes gravados no best.pt (ignora --classes)
             self.execucao = f"pt:{disp}"                     # ex.: pt:mps
