@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" font-family="Helvetica, Arial, sans-serif">
+  <title>Arquitetura do Ir Além: coleta por câmera, transmissão Wi-Fi e reconhecimento com best.pt</title>
+  <defs>
+    <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#33413a"/>
+    </marker>
+    <marker id="seta-plus" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3d55a8"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="700" fill="#ffffff"/>
+
+  <!-- título -->
+  <text x="40" y="48" font-size="26" font-weight="700" fill="#18221b">FarmTech · Ir Além 3.1: visão do rover em tempo real</text>
+  <text x="40" y="76" font-size="15" fill="#5a6a5e">Mesmo cliente no PC para os dois modos. BASE cumpre o enunciado; PLUS leva a inferência para dentro do rover.</text>
+
+  <!-- faixa BASE -->
+  <rect x="24" y="100" width="1152" height="300" rx="14" fill="#f2f7f2" stroke="#cfe0d2"/>
+  <text x="44" y="128" font-size="13" font-weight="700" fill="#2e6a42" letter-spacing="1.5">MODO BASE · O QUE O ENUNCIADO PEDE</text>
+
+  <!-- fontes de câmera -->
+  <g font-size="15" fill="#18221b">
+    <rect x="44" y="148" width="250" height="64" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5"/>
+    <text x="60" y="175" font-weight="700">ESP32-CAM</text>
+    <text x="60" y="197" font-size="13" fill="#5a6a5e">OV2640 · esp32cam_stream.ino</text>
+
+    <rect x="44" y="224" width="250" height="64" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5"/>
+    <text x="60" y="251" font-weight="700">Raspberry Pi 5 + câmera</text>
+    <text x="60" y="273" font-size="13" fill="#5a6a5e">picamera2 · camera_server.py</text>
+
+    <rect x="44" y="300" width="250" height="64" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="60" y="327" font-weight="700">Webcam do PC</text>
+    <text x="60" y="349" font-size="13" fill="#5a6a5e">local, sem rede (--fonte 0)</text>
+  </g>
+
+  <!-- Wi-Fi -->
+  <rect x="380" y="190" width="220" height="120" rx="60" fill="#ffffff" stroke="#33413a" stroke-width="1.5"/>
+  <g fill="none" stroke="#2e6a42" stroke-width="3" stroke-linecap="round">
+    <path d="M466 228 a48 48 0 0 1 68 0"/>
+    <path d="M478 240 a30 30 0 0 1 44 0"/>
+  </g>
+  <circle cx="500" cy="252" r="4.5" fill="#2e6a42"/>
+  <text x="490" y="282" font-size="16" font-weight="700" fill="#18221b" text-anchor="middle">Wi-Fi</text>
+  <text x="490" y="300" font-size="12.5" fill="#5a6a5e" text-anchor="middle">MJPEG / HTTP · /stream</text>
+
+  <line x1="294" y1="180" x2="392" y2="232" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
+  <line x1="294" y1="256" x2="380" y2="252" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
+
+  <!-- PC -->
+  <rect x="690" y="150" width="270" height="200" rx="12" fill="#ffffff" stroke="#2e6a42" stroke-width="2"/>
+  <text x="708" y="180" font-size="17" font-weight="700" fill="#18221b">PC · VS Code</text>
+  <text x="708" y="204" font-size="13.5" fill="#33413a">cliente_vscode.py</text>
+  <rect x="708" y="218" width="234" height="54" rx="8" fill="#e2f2e6"/>
+  <text x="722" y="242" font-size="14" font-weight="700" fill="#24753f">best.pt (Entrega 1)</text>
+  <text x="722" y="262" font-size="12.5" fill="#33413a">YOLOv5 · 5 classes · inferência</text>
+  <text x="708" y="296" font-size="12.5" fill="#5a6a5e">vaca · cobra · escorpiao</text>
+  <text x="708" y="314" font-size="12.5" fill="#5a6a5e">arvore · cerca (mourão)</text>
+  <text x="708" y="336" font-size="12.5" fill="#5a6a5e">FPS · latência de rede e de inferência</text>
+
+  <line x1="600" y1="250" x2="688" y2="250" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
+  <path d="M294 332 C 520 380, 600 330, 688 318" fill="none" stroke="#33413a" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#seta)"/>
+  <text x="430" y="368" font-size="12" fill="#5a6a5e">USB / OpenCV</text>
+
+  <!-- saídas -->
+  <rect x="1030" y="150" width="130" height="92" rx="10" fill="#fbe3e0" stroke="#b3322a" stroke-width="1.5"/>
+  <text x="1046" y="178" font-size="15" font-weight="700" fill="#b3322a">Alerta</text>
+  <text x="1046" y="200" font-size="12.5" fill="#33413a">cobra ou</text>
+  <text x="1046" y="218" font-size="12.5" fill="#33413a">escorpião</text>
+  <text x="1046" y="234" font-size="11.5" fill="#5a6a5e">alertas.csv</text>
+
+  <rect x="1030" y="258" width="130" height="92" rx="10" fill="#ffffff" stroke="#33413a" stroke-width="1.2"/>
+  <text x="1046" y="286" font-size="15" font-weight="700" fill="#18221b">Evidências</text>
+  <text x="1046" y="308" font-size="12.5" fill="#33413a">frames.csv</text>
+  <text x="1046" y="326" font-size="12.5" fill="#33413a">prints (tecla s)</text>
+  <text x="1046" y="342" font-size="11.5" fill="#5a6a5e">→ notebook</text>
+
+  <line x1="960" y1="214" x2="1028" y2="198" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
+  <line x1="960" y1="290" x2="1028" y2="302" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
+
+  <!-- faixa PLUS -->
+  <rect x="24" y="420" width="1152" height="250" rx="14" fill="#eef1fb" stroke="#c9d2f0"/>
+  <text x="44" y="448" font-size="13" font-weight="700" fill="#3d55a8" letter-spacing="1.5">MODO PLUS · INFERÊNCIA EMBARCADA NO ROVER (SEM NUVEM)</text>
+
+  <rect x="44" y="470" width="250" height="78" rx="10" fill="#ffffff" stroke="#3d55a8" stroke-width="1.5"/>
+  <text x="60" y="498" font-size="15" font-weight="700" fill="#18221b">Câmera do Pi</text>
+  <text x="60" y="520" font-size="13" fill="#5a6a5e">mesma ótica do dataset</text>
+  <text x="60" y="538" font-size="13" fill="#5a6a5e">(lote A capturado nela)</text>
+
+  <rect x="350" y="462" width="300" height="94" rx="12" fill="#ffffff" stroke="#3d55a8" stroke-width="2"/>
+  <text x="368" y="490" font-size="16" font-weight="700" fill="#18221b">Raspberry Pi 5 + Hailo-8L</text>
+  <text x="368" y="512" font-size="13" fill="#33413a">best.pt → ONNX → best.hef (INT8)</text>
+  <text x="368" y="532" font-size="13" fill="#33413a">13 TOPS · NMS no chip · anota o quadro</text>
+  <text x="368" y="548" font-size="11.5" fill="#5a6a5e">camera_server.py --inferencia hailo</text>
+
+  <rect x="350" y="580" width="300" height="64" rx="10" fill="#ffffff" stroke="#3d55a8" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="368" y="606" font-size="14" font-weight="700" fill="#3d55a8">Plano B · ONNX Runtime na CPU</text>
+  <text x="368" y="626" font-size="12.5" fill="#5a6a5e">--inferencia onnx · mesmo fluxo, mais lento</text>
+
+  <line x1="294" y1="509" x2="348" y2="509" stroke="#3d55a8" stroke-width="1.8" marker-end="url(#seta-plus)"/>
+  <line x1="500" y1="580" x2="500" y2="558" stroke="#3d55a8" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#seta-plus)"/>
+
+  <rect x="706" y="470" width="240" height="78" rx="10" fill="#ffffff" stroke="#3d55a8" stroke-width="1.5"/>
+  <text x="722" y="498" font-size="15" font-weight="700" fill="#18221b">Wi-Fi</text>
+  <text x="722" y="520" font-size="13" fill="#33413a">/stream vídeo já anotado</text>
+  <text x="722" y="538" font-size="13" fill="#33413a">/deteccoes JSON</text>
+
+  <line x1="650" y1="509" x2="704" y2="509" stroke="#3d55a8" stroke-width="1.8" marker-end="url(#seta-plus)"/>
+  <path d="M946 500 C 1000 470, 900 380, 860 354" fill="none" stroke="#3d55a8" stroke-width="2" marker-end="url(#seta-plus)"/>
+  <text x="972" y="452" font-size="12.5" fill="#3d55a8">mesmo cliente,</text>
+  <text x="972" y="469" font-size="12.5" fill="#3d55a8">sem --modelo</text>
+
+  <text x="706" y="600" font-size="13" fill="#33413a">Por que o plus: inferência local no rover,</text>
+  <text x="706" y="619" font-size="13" fill="#33413a">sem depender de PC ou nuvem no pasto;</text>
+  <text x="706" y="638" font-size="13" fill="#33413a">só alertas e vídeo trafegam pela rede.</text>
+</svg>

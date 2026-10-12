@@ -1,0 +1,14 @@
+# PC (cliente_vscode.py, modo BASE com best.pt): Python 3.10 a 3.12
+opencv-python>=4.8          # janela, decodificação do MJPEG e desenho das caixas
+numpy>=1.24
+torch>=2.1                  # carrega o best.pt via torch.hub (ultralytics/yolov5)
+torchvision>=0.16
+pandas>=2.0                 # dependência do hub do YOLOv5
+scipy>=1.10                 # exigido pelo hub do YOLOv5 (sem ele, o hub tenta um pip install durante a execução)
+pyyaml>=6
+requests>=2.31
+tqdm>=4.66
+seaborn>=0.13
+ultralytics>=8.0            # o hub do YOLOv5 importa utilitários deste pacote
+onnxruntime>=1.17           # opcional: executa o best.onnx no PC sem PyTorch
+matplotlib>=3.7             # gráficos do notebook do Ir Além

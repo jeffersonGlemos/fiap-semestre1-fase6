@@ -1,0 +1,15 @@
+[project]
+name = "farmtech-rotulacao"
+version = "0.1.0"
+description = "Pré-rotulação, revisão e split do dataset da Fase 6"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch>=2.5",
+    "transformers>=4.51",
+    "supervision>=0.26",
+    "roboflow>=1.1",
+    "pillow>=10",
+    "pyyaml>=6",
+    "requests>=2.34.2",
+    "python-dotenv>=1.2.4",
+]

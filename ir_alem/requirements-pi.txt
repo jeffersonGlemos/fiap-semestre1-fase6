@@ -1,0 +1,10 @@
+# Raspberry Pi 5 (camera_server.py), com Raspberry Pi OS Bookworm 64-bit
+#
+# Pacotes instalados pelo sistema (apt), não pelo pip:
+#   sudo apt install python3-picamera2 python3-opencv hailo-all
+# O venv precisa enxergar esses pacotes do sistema:
+#   python3 -m venv --system-site-packages .venv && source .venv/bin/activate
+#
+# O hailo-all instala o HailoRT, o firmware e o módulo hailo_platform (modo PLUS).
+numpy>=1.24
+onnxruntime>=1.17           # plano B do PLUS: best.onnx na CPU do Pi

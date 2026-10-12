@@ -1,0 +1,7 @@
+# Configuração do dataset para o YOLOv5. A ordem das classes é a mesma do labels.txt usado no Roboflow.
+path: /content/drive/MyDrive/FarmTech_Fase6/dataset
+train: train/images
+val:   val/images
+test:  test/images
+nc: 5
+names: ['vaca', 'cobra', 'escorpiao', 'arvore', 'cerca']
