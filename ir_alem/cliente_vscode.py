@@ -335,7 +335,7 @@ def abrir_log(caminho, cabecalho):
             antigo = caminho.with_name(f"{caminho.stem}_antigo_{datetime.now():%Y%m%d_%H%M%S}.csv")
             caminho.rename(antigo)
             print(f"{caminho.name} tinha outras colunas; o arquivo anterior foi preservado como {antigo.name}")
-    arquivo = open(caminho, "a", newline="", encoding="utf-8")   # explícito: no Windows o padrão seria cp1252 ("SÓ VÍDEO")
+    arquivo = open(caminho, "a", newline="", encoding="utf-8", buffering=1)   # utf-8 explícito (no Windows seria cp1252); grava linha a linha, para não perder registros num encerramento forçado
     escritor = csv.writer(arquivo)
     if arquivo.tell() == 0:                                  # o cabeçalho só é escrito em arquivo novo
         escritor.writerow(cabecalho)

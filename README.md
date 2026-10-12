@@ -30,8 +30,8 @@ não precisem ser renumerados.
 |---|---|
 | Notebook principal (Entregas 1 e 2) | [`JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb`](JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jeffersonGlemos/fiap-semestre1-fase6/blob/main/JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb) |
 | Notebook Ir Além | [`ir_alem/JeffersonGoncalvesLemos_rm572399_pbl_fase6_ir_alem.ipynb`](ir_alem/JeffersonGoncalvesLemos_rm572399_pbl_fase6_ir_alem.ipynb) |
-| Vídeo: Entregas 1 e 2 (até 5 min) | <!-- TODO: link YouTube não listado --> _em breve_ |
-| Vídeo: Ir Além (até 5 min) | <!-- TODO: link YouTube não listado --> _em breve_ |
+| Vídeo: Entregas 1 e 2 (até 5 min) | [youtu.be/4QadJMwuz_E](https://youtu.be/4QadJMwuz_E) |
+| Vídeo: Ir Além (até 5 min) | [youtu.be/xmVNAbVTMQc](https://youtu.be/xmVNAbVTMQc) |
 
 O notebook principal cobre:
 
@@ -51,11 +51,13 @@ por HTTPS com certificado autoassinado (o navegador só libera a câmera em cont
 celular abre essa página por um QR code exibido no terminal. A página envia os quadros em JPEG pelo
 Wi-Fi ao Mac; o `cliente_vscode.py` roda o modelo oficial, o `best.pt` treinado no Colab com GPU L4,
 e devolve as caixas ao celular em coordenadas normalizadas (0 a 1), que a página desenha sobre a
-própria prévia da câmera. O enunciado fala em ler o `best.pt`. Na sessão registrada, usei o
-`best.onnx` exportado desse mesmo `best.pt`, executado pelo ONNX Runtime com o provedor CoreML; o
-cliente também carrega o `.pt` diretamente. Essa sessão (logs em `ir_alem/logs/`) registrou
-15,0 FPS, latência fim a fim de 34,8 ms, RTT de rede de cerca de 4,3 ms e inferência de 7,0 ms, com
-a caneca detectada em 212 dos 249 quadros.
+própria prévia da câmera. O enunciado fala em ler o `best.pt`. Registrei três sessões com o celular
+(logs em `ir_alem/logs/`). Na primeira, usei o `best.onnx` exportado desse mesmo `best.pt`, executado
+pelo ONNX Runtime com o provedor CoreML: 15,0 FPS, inferência de 7,0 ms e a caneca detectada em 212
+dos 249 quadros. Nas outras duas, o cliente leu o `best.pt` diretamente, com o PyTorch em MPS, e a
+inferência ficou entre 16 e 17 ms; a terceira, de cerca de 2,8 minutos, foi registrada durante a
+gravação do vídeo do Ir Além, e nas duas o alerta de cobra disparou. Nas três sessões, o RTT de rede
+ficou entre 3,7 e 4,3 ms de mediana e o FPS perto dos 15 quadros/s enviados pela página.
 
 Como plus, implementei a inferência embarcada num Raspberry Pi 5 com acelerador Hailo-8L: o backend
 está em `ir_alem/backends/` e a conversão do modelo para `.hef` está documentada em `ir_alem/hailo/`.
@@ -99,7 +101,7 @@ Esse caminho não foi testado no hardware; a análise e as limitações estão n
     ├── backends/              Hailo (.hef), ONNX e compat.py (carregamento portável do checkpoint)
     ├── esp32cam/              sketch do ESP32-CAM com as mesmas rotas HTTP
     ├── hailo/                 conversão documentada best.pt → ONNX → .hef (não testada no hardware)
-    ├── logs/                  frames.csv e alertas.csv da sessão registrada com o celular
+    ├── logs/                  frames.csv e alertas.csv das sessões com o celular
     └── figuras/               figura autoral da arquitetura
 ```
 
@@ -190,7 +192,7 @@ O modelo oficial está versionado em `ir_alem/modelos/best_portavel.pt` (YOLOv5s
 SHA-256 `3b3b2e2fef022928bd950d58d3cb806d1cfad9ffc203229f1d891663ae3617c5`). É o mesmo `best.pt` da
 execução registrada no notebook, salvo de forma portável: o checkpoint original guarda objetos
 `pathlib` do Python 3.13 em Linux, que não carregam no Python 3.12 nem no Windows. O `best.onnx` é
-gerado a partir dele pelo `exportar_modelo.py`. Para repetir a sessão com o celular, no terminal do
+gerado a partir dele pelo `exportar_modelo.py`. Para repetir a sessão 1 com o celular, no terminal do
 VS Code e dentro de `ir_alem/`:
 
 ```bash
@@ -202,7 +204,8 @@ python cliente_vscode.py --fonte https://<IP do Mac>:8000/stream --inseguro \
 ```
 
 Em Windows ou Linux, `--provedor auto` escolhe o provedor disponível, e `--modelo
-modelos/best_portavel.pt` usa o PyTorch diretamente. As demais opções, inclusive o plus com Hailo,
+modelos/best_portavel.pt` usa o PyTorch diretamente, como nas sessões 2 e 3 (com `--dispositivo mps`
+no Mac). As demais opções, inclusive o plus com Hailo,
 estão no notebook do Ir Além.
 
 ## Créditos das imagens e licença
