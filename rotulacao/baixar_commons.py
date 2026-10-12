@@ -1,11 +1,17 @@
-"""Baixa fotos de pasto do Wikimedia Commons para o lote A (vaca, arvore, cerca).
+"""Baixa fotos do Wikimedia Commons: o lote A (pasto) e o lote D (caneca).
 
-As fotos vêm das categorias "Cattle in Brazil", "Pastures in Brazil", "Wooden fences in Brazil",
-"Fence posts" e "Barbed wire fences", incluindo as subcategorias diretas de cada uma. Aceito apenas
-arquivos JPEG com licença livre (CC0, CC BY, CC BY-SA ou domínio público) e com resolução mínima.
-O total pedido é dividido em cotas por categoria, para que o lote não fique composto só de fotos
-de gado e também traga cercas, mourões e pasto com árvores. Só a imagem é baixada; a rotulação
-é feita neste projeto.
+Sem opções, o script baixa o lote A (vaca, arvore, cerca) das categorias "Cattle in Brazil",
+"Pastures in Brazil", "Wooden fences in Brazil", "Fence posts" e "Barbed wire fences". Com
+--categorias, --classe e --prefixo, o mesmo processo serve a outros lotes, como o das canecas.
+As subcategorias diretas de cada categoria também entram. Aceito apenas arquivos JPEG com licença
+livre (CC0, CC BY, CC BY-SA ou domínio público) e com resolução mínima. O total pedido é dividido
+em cotas por categoria, para que o lote não fique composto só de fotos de gado e também traga
+cercas, mourões e pasto com árvores. Só a imagem é baixada; a rotulação é feita neste projeto.
+
+Para a caneca, procurei fotos do objeto em uso ou sobre uma mesa, parecidas com a cena da demonstração
+ao vivo, e não fotos de catálogo. Duas opções ajudam nisso: --excluir descarta títulos que casem
+com uma expressão regular (peças de museu, por exemplo) e --sem-fundo-branco descarta fotos cuja
+borda é quase toda branca, o padrão das fotos de produto.
 
 Cada foto baixada gera uma linha em creditos.csv (autor, licença e links), o mesmo arquivo usado
 pelos lotes B e C do iNaturalist (baixar_bancos.py).
@@ -13,17 +19,22 @@ pelos lotes B e C do iNaturalist (baixar_bancos.py).
 Uso:
     uv run baixar_commons.py brutas/pasto
     uv run baixar_commons.py brutas/pasto --quantidade 200 --largura 1600
+    uv run baixar_commons.py brutas/caneca --classe caneca --quantidade 60 --sem-fundo-branco \\
+        --categorias "Coffee mugs" "Mugs with logos" "People with mugs" "Mugs with soup" "Mugs" \\
+        --excluir "museum|collection|\\(AM "
 
 Uma nova execução continua a numeração e pula os arquivos já registrados nos créditos.
 """
 
 import argparse
 import html
+import io
 import re
 import time
 from pathlib import Path
 
 import requests
+from PIL import Image
 
 from baixar_bancos import USER_AGENT, ler_creditos, salvar_creditos
 
@@ -39,6 +50,7 @@ CATEGORIAS = [
 # Variantes como CC BY-NC ou CC BY-ND não casam e ficam de fora.
 LICENCAS = re.compile(r"^(CC0|CC BY(-SA)? \d|Public domain)", re.I)
 PAUSA = 1.0                                                   # segundos entre requisições
+BRANCO = 230                                                  # tom de cinza a partir do qual o pixel conta como branco
 
 sessao = requests.Session()
 sessao.headers["User-Agent"] = USER_AGENT
@@ -110,9 +122,30 @@ def texto_meta(meta, chave):
     return html.unescape(re.sub(r"<[^>]+>", "", valor)).strip()
 
 
+def fundo_branco(conteudo, fracao=0.6):
+    """True se mais que `fracao` da borda da foto for quase branca (típico de foto de produto)."""
+    cinza = Image.open(io.BytesIO(conteudo)).convert("L")
+    cinza.thumbnail((200, 200))                               # reduzir basta para medir a borda e é bem mais rápido
+    largura, altura = cinza.size
+    m = max(1, min(largura, altura) // 10)                    # borda com 10% do lado menor
+    pixels = cinza.load()
+    borda = [pixels[x, y] for x in range(largura) for y in range(altura)
+             if x < m or y < m or x >= largura - m or y >= altura - m]
+    return sum(p >= BRANCO for p in borda) > fracao * len(borda)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("destino", type=Path, help="pasta onde as fotos são gravadas (ex.: brutas/pasto)")
+    ap.add_argument("--categorias", nargs="+", default=CATEGORIAS, metavar="CATEGORIA",
+                    help="categorias do Commons, sem o prefixo Category: (padrão: as cinco do lote de pasto)")
+    ap.add_argument("--classe", default="pasto",
+                    help="valor da coluna classe em creditos.csv (padrão pasto)")
+    ap.add_argument("--prefixo", help="início do nome dos arquivos, PREFIXO_commons_NNN.jpg (padrão: o valor de --classe)")
+    ap.add_argument("--excluir", type=lambda r: re.compile(r, re.I), metavar="REGEX",
+                    help="descarta arquivos cujo título casa com esta expressão regular (sem diferenciar maiúsculas)")
+    ap.add_argument("--sem-fundo-branco", action="store_true",
+                    help="descarta fotos com a borda quase toda branca, típicas de catálogo de produto")
     ap.add_argument("--quantidade", type=int, default=200,
                     help="total de fotos, dividido em cotas entre as categorias (padrão 200)")
     ap.add_argument("--largura", type=int, default=1600,
@@ -127,9 +160,10 @@ def main():
     args.destino.mkdir(parents=True, exist_ok=True)
     creditos = ler_creditos(args.creditos)
     ja_baixadas = {c["url_observacao"] for c in creditos}     # evita baixar de novo o mesmo arquivo
-    numero = 1 + sum(1 for c in creditos if c["classe"] == "pasto")  # continua a numeração
+    prefixo = args.prefixo or args.classe
+    numero = 1 + sum(1 for c in creditos if c["classe"] == args.classe)  # continua a numeração
 
-    por_categoria = arquivos_candidatos(CATEGORIAS)
+    por_categoria = arquivos_candidatos(args.categorias)
     print(f"{sum(map(len, por_categoria.values()))} arquivos nas categorias")
     baixadas = 0
     for indice, (categoria, titulos) in enumerate(por_categoria.items()):
@@ -142,22 +176,30 @@ def main():
                 break
             meta = info.get("extmetadata", {})
             licenca = texto_meta(meta, "LicenseShortName")
-            # descarta o que não for JPEG, for pequeno demais, tiver licença não livre ou já estiver nos créditos
+            # descarta o que não for JPEG, for pequeno demais, tiver licença não livre, já estiver nos créditos
+            # ou tiver o título barrado por --excluir
             if (info.get("mime") != "image/jpeg" or min(info["width"], info["height"]) < args.minimo * 0.6
                     or max(info["width"], info["height"]) < args.minimo or not LICENCAS.match(licenca)
-                    or info["descriptionurl"] in ja_baixadas):
+                    or info["descriptionurl"] in ja_baixadas
+                    or (args.excluir and args.excluir.search(titulo))):
                 continue
             # thumburl é a versão reduzida para a largura pedida (mais leve que o original de alta resolução);
             # se a imagem já for mais estreita que isso, o Commons não amplia e o thumburl aponta para o original
             url = info.get("thumburl") or info["url"]
-            nome = f"pasto_commons_{numero:03d}.jpg"
+            nome = f"{prefixo}_commons_{numero:03d}.jpg"
             try:
                 conteudo = obter(url)
             except requests.RequestException as erro:
                 print(f"falhou {titulo}: {erro}")
                 continue
+            # o fundo só pode ser avaliado depois do download; a foto descartada não volta a ser tentada nesta execução
+            if args.sem_fundo_branco and fundo_branco(conteudo.content):
+                print(f"descartada (fundo branco) {titulo}")
+                ja_baixadas.add(info["descriptionurl"])
+                time.sleep(PAUSA)
+                continue
             (args.destino / nome).write_bytes(conteudo.content)
-            creditos.append({"arquivo": nome, "classe": "pasto", "autor": texto_meta(meta, "Artist") or "desconhecido",
+            creditos.append({"arquivo": nome, "classe": args.classe, "autor": texto_meta(meta, "Artist") or "desconhecido",
                              "licenca": licenca, "url_observacao": info["descriptionurl"], "url_foto": url})
             salvar_creditos(args.creditos, creditos)          # grava a cada foto; se o script parar, nada se perde
             ja_baixadas.add(info["descriptionurl"])

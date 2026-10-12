@@ -21,6 +21,7 @@ Uso:
     python camera_server.py --fonte demo.mp4 --loop                            # vídeo (testes)
     python camera_server.py --fonte picamera2 --inferencia hailo --modelo best.hef
     python camera_server.py --fonte picamera2 --inferencia onnx  --modelo best.onnx
+    python camera_server.py --fonte 0 --inferencia onnx --modelo best.onnx --provedor coreml   # PLUS simulado no Mac
     python camera_server.py --fonte teste.mp4 --loop --inferencia hailo \
         --modelo /usr/share/hailo-models/yolov8s_h8l.hef --classes coco   # teste sem best.hef
 """
@@ -207,6 +208,8 @@ def main():
     ap.add_argument("--inferencia", choices=["nenhuma", "hailo", "onnx"], default="nenhuma")
     ap.add_argument("--modelo", type=Path, help="best.hef (hailo) ou best.onnx (onnx)")
     ap.add_argument("--conf", type=float, default=0.25, help="confiança mínima para manter uma detecção")
+    ap.add_argument("--provedor", default="auto", choices=["auto", "cpu", "coreml", "cuda", "directml"],
+                    help="execution provider do ONNX Runtime (só com --inferencia onnx; no Pi, auto resulta em cpu)")
     ap.add_argument("--classes", default="fase6",
                     help="fase6 (padrão, best.hef/onnx), coco (modelos pré-treinados, para teste) ou arquivo .txt")
     args = ap.parse_args()
@@ -216,7 +219,7 @@ def main():
         if not args.modelo or not args.modelo.exists():
             ap.error(f"--inferencia {args.inferencia} exige um --modelo que exista")
         backend = carregar_backend(args.inferencia, args.modelo, conf=args.conf,
-                                   classes=resolver_classes(args.classes))
+                                   classes=resolver_classes(args.classes), provedor=args.provedor)
 
     camera = Camera(args.fonte, args.largura, args.altura, args.loop)
     estado, parar = Estado(), threading.Event()
@@ -224,11 +227,13 @@ def main():
                      args=(camera, estado, backend, args.inferencia, args.qualidade, args.fps_max, parar)).start()
 
     info = {"servidor": "farmtech-camera", "fonte": args.fonte, "inferencia": args.inferencia,
-            "modelo": args.modelo.name if args.modelo else None}
+            "modelo": args.modelo.name if args.modelo else None,
+            "provedor": getattr(backend, "provedor", None)}  # execution provider do ONNX; o cliente grava no log
     servidor = ThreadingHTTPServer(("0.0.0.0", args.porta), criar_handler(estado, info))
     servidor.daemon_threads = True                           # conexões abertas não impedem o encerramento
     ip = ip_local()
-    print(f"Transmitindo em http://{ip}:{args.porta}/stream  (inferência: {args.inferencia})")
+    extra = f", {info['provedor']}" if info["provedor"] else ""
+    print(f"Transmitindo em http://{ip}:{args.porta}/stream  (inferência: {args.inferencia}{extra})")
     print(f"No PC:  python cliente_vscode.py --fonte http://{ip}:{args.porta}/stream")
     try:
         servidor.serve_forever()

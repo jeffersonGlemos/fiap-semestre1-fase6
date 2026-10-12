@@ -3,3 +3,4 @@ cobra
 escorpiao
 arvore
 cerca
+caneca

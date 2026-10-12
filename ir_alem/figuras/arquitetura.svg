@@ -21,17 +21,21 @@
 
   <!-- fontes de câmera -->
   <g font-size="15" fill="#18221b">
-    <rect x="44" y="148" width="250" height="64" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5"/>
-    <text x="60" y="175" font-weight="700">ESP32-CAM</text>
-    <text x="60" y="197" font-size="13" fill="#5a6a5e">OV2640 · esp32cam_stream.ino</text>
+    <rect x="44" y="142" width="250" height="52" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5"/>
+    <text x="60" y="164" font-weight="700">ESP32-CAM</text>
+    <text x="60" y="184" font-size="13" fill="#5a6a5e">OV2640 · esp32cam_stream.ino</text>
 
-    <rect x="44" y="224" width="250" height="64" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5"/>
-    <text x="60" y="251" font-weight="700">Raspberry Pi 5 + câmera</text>
-    <text x="60" y="273" font-size="13" fill="#5a6a5e">picamera2 · camera_server.py</text>
+    <rect x="44" y="202" width="250" height="52" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5"/>
+    <text x="60" y="224" font-weight="700">Raspberry Pi 5 + câmera</text>
+    <text x="60" y="244" font-size="13" fill="#5a6a5e">picamera2 · camera_server.py</text>
 
-    <rect x="44" y="300" width="250" height="64" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5" stroke-dasharray="5 4"/>
-    <text x="60" y="327" font-weight="700">Webcam do PC</text>
-    <text x="60" y="349" font-size="13" fill="#5a6a5e">local, sem rede (--fonte 0)</text>
+    <rect x="44" y="262" width="250" height="52" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5"/>
+    <text x="60" y="284" font-weight="700">Celular · câmera IP</text>
+    <text x="60" y="304" font-size="13" fill="#5a6a5e">app transmitindo MJPEG por Wi-Fi</text>
+
+    <rect x="44" y="322" width="250" height="52" rx="10" fill="#ffffff" stroke="#2e6a42" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="60" y="344" font-weight="700">Webcam do PC</text>
+    <text x="60" y="364" font-size="13" fill="#5a6a5e">local, sem rede (--fonte 0)</text>
   </g>
 
   <!-- Wi-Fi -->
@@ -44,8 +48,9 @@
   <text x="490" y="282" font-size="16" font-weight="700" fill="#18221b" text-anchor="middle">Wi-Fi</text>
   <text x="490" y="300" font-size="12.5" fill="#5a6a5e" text-anchor="middle">MJPEG / HTTP · /stream</text>
 
-  <line x1="294" y1="180" x2="392" y2="232" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
-  <line x1="294" y1="256" x2="380" y2="252" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
+  <line x1="294" y1="168" x2="396" y2="226" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
+  <line x1="294" y1="228" x2="380" y2="245" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
+  <line x1="294" y1="288" x2="384" y2="266" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
 
   <!-- PC -->
   <rect x="690" y="150" width="270" height="200" rx="12" fill="#ffffff" stroke="#2e6a42" stroke-width="2"/>
@@ -53,14 +58,14 @@
   <text x="708" y="204" font-size="13.5" fill="#33413a">cliente_vscode.py</text>
   <rect x="708" y="218" width="234" height="54" rx="8" fill="#e2f2e6"/>
   <text x="722" y="242" font-size="14" font-weight="700" fill="#24753f">best.pt (Entrega 1)</text>
-  <text x="722" y="262" font-size="12.5" fill="#33413a">YOLOv5 · 5 classes · inferência</text>
+  <text x="722" y="262" font-size="12.5" fill="#33413a">YOLOv5 · 6 classes · inferência</text>
   <text x="708" y="296" font-size="12.5" fill="#5a6a5e">vaca · cobra · escorpiao</text>
-  <text x="708" y="314" font-size="12.5" fill="#5a6a5e">arvore · cerca (mourão)</text>
+  <text x="708" y="314" font-size="12.5" fill="#5a6a5e">arvore · cerca (mourão) · caneca</text>
   <text x="708" y="336" font-size="12.5" fill="#5a6a5e">FPS · latência de rede e de inferência</text>
 
   <line x1="600" y1="250" x2="688" y2="250" stroke="#33413a" stroke-width="1.8" marker-end="url(#seta)"/>
-  <path d="M294 332 C 520 380, 600 330, 688 318" fill="none" stroke="#33413a" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#seta)"/>
-  <text x="430" y="368" font-size="12" fill="#5a6a5e">USB / OpenCV</text>
+  <path d="M294 352 C 520 394, 610 340, 688 322" fill="none" stroke="#33413a" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#seta)"/>
+  <text x="440" y="391" font-size="12" fill="#5a6a5e">USB / OpenCV</text>
 
   <!-- saídas -->
   <rect x="1030" y="150" width="130" height="92" rx="10" fill="#fbe3e0" stroke="#b3322a" stroke-width="1.5"/>

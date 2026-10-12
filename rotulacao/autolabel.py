@@ -6,6 +6,7 @@ são apenas um ponto de partida: todas passam por revisão manual no Roboflow An
 Uso:
     uv run autolabel.py brutas/pasto  saida/  --classes vaca,arvore,cerca
     uv run autolabel.py brutas/cobras saida/  --classes cobra
+    uv run autolabel.py brutas/caneca saida_caneca/ --classes caneca
 """
 
 import argparse
@@ -20,7 +21,7 @@ import torch
 from PIL import Image, ImageOps
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
-CLASSES = ["vaca", "cobra", "escorpiao", "arvore", "cerca"]  # mesma ordem do labels.txt/data.yaml
+CLASSES = ["vaca", "cobra", "escorpiao", "arvore", "cerca", "caneca"]  # mesma ordem do labels.txt/data.yaml
 
 # Prompt em inglês (idioma do pré-treino do modelo) e limiar de confiança por classe.
 # Para a cerca, o prompt pede o mourão: a caixa da cerca inteira ficaria quase toda preenchida por fundo.
@@ -30,6 +31,7 @@ PROMPTS = {
     "escorpiao": ("a scorpion.",                0.30),
     "arvore":    ("a tree.",                    0.35),
     "cerca":     ("a wooden fence post.",       0.30),
+    "caneca":    ("a mug.",                     0.35),
 }
 EXT_IMG = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 

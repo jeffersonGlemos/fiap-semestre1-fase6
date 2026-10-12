@@ -3,5 +3,5 @@ path: /content/drive/MyDrive/FarmTech_Fase6/dataset
 train: train/images
 val:   val/images
 test:  test/images
-nc: 5
-names: ['vaca', 'cobra', 'escorpiao', 'arvore', 'cerca']
+nc: 6
+names: ['vaca', 'cobra', 'escorpiao', 'arvore', 'cerca', 'caneca']

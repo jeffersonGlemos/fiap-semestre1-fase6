@@ -16,6 +16,13 @@ passo a passo no notebook. Este README apenas apresenta o projeto e indica onde 
 | 2 | `escorpiao` | Há risco biológico no caminho? | objeto pequeno, a classe mais difícil |
 | 3 | `arvore` | Onde posso andar? | obstáculo |
 | 4 | `cerca` | Onde posso andar? | a caixa é desenhada no **mourão**, não na cerca inteira |
+| 5 | `caneca` | Nenhuma: não faz parte da cena do pasto | objeto da demonstração ao vivo com câmera no Ir Além |
+
+A `caneca` não responde a uma pergunta do rover. Incluí essa classe porque a demonstração ao vivo do
+Ir Além usa o celular como câmera Wi-Fi, e no ambiente de gravação não há vacas, cobras nem
+escorpiões. Com a caneca, a detecção em tempo real pode ser mostrada com um objeto que está de fato
+diante da câmera. Ela ocupa o último índice para que os rótulos já feitos das cinco classes do pasto
+não precisem ser renumerados.
 
 ## Entregáveis
 
@@ -49,7 +56,7 @@ com acelerador Hailo-8L, que envia o vídeo anotado e as detecções ao mesmo cl
 │   ├── coleta.py              captura com câmera própria (Pi ou webcam) para ampliar o dataset;
 │   │                          não foi a origem do lote A atual
 │   ├── baixar_bancos.py       cobras e escorpiões do iNaturalist (licenças CC) + creditos.csv
-│   ├── baixar_commons.py      fotos de pasto do Wikimedia Commons (licenças livres) + creditos.csv
+│   ├── baixar_commons.py      fotos de pasto e de canecas do Wikimedia Commons + creditos.csv
 │   ├── autolabel.py           pré-rotulação zero-shot com Grounding DINO
 │   ├── roboflow_sync.py       envio para a revisão no Roboflow Annotate e download da versão revisada
 │   ├── roboflow.env.exemplo   modelo da configuração do Roboflow (chave, workspace e projeto)
@@ -72,7 +79,7 @@ com acelerador Hailo-8L, que envia o vídeo anotado e as detecções ao mesmo cl
 autolabel.py → roboflow_sync.py → revisão no Roboflow Annotate → split.py → contagem.py
 ```
 
-O enunciado sugere o Make Sense IA. Optei por outro fluxo porque, com cinco classes e no mínimo 40
+O enunciado sugere o Make Sense IA. Optei por outro fluxo porque, com seis classes e no mínimo 40
 imagens por classe, desenhar todas as caixas do zero seria lento e tenderia a gerar caixas
 inconsistentes entre sessões de trabalho. O Grounding DINO faz uma pré-rotulação zero-shot a partir
 de um prompt de texto por classe, e essas caixas servem apenas de ponto de partida: revisei
@@ -112,6 +119,15 @@ categoria para que o lote não ficasse composto só de fotos de gado. O download
 `rotulacao/baixar_commons.py`.
 As imagens de `cobra` e `escorpiao` vêm do iNaturalist: usei apenas observações *research grade*
 cujas fotos têm licença CC0, CC BY ou CC BY-SA, baixadas por `rotulacao/baixar_bancos.py`.
-Autor, licença e links de todas as imagens dos três lotes estão em
+As fotos de `caneca` formam o lote D e também vêm do Wikimedia Commons, baixadas pelo mesmo
+`rotulacao/baixar_commons.py` e com os mesmos filtros de formato, licença (CC0, CC BY, CC BY-SA ou
+domínio público) e resolução. Usei as categorias *Coffee mugs*, *Mugs with logos*, *People with
+mugs*, *Mugs with soup* e *Mugs* (com as subcategorias diretas), com a mesma divisão em cotas.
+Escolhi categorias de canecas em uso, com café, sopa ou na mão de alguém, porque na demonstração
+ao vivo a caneca aparece sobre a mesa e não isolada como num catálogo; pelo mesmo motivo, o script
+descarta peças de acervo de museu pelo título e fotos de produto pela borda quase toda branca.
+Fotos próprias de canecas, feitas com o celular no ambiente da demonstração, poderão complementar
+esse lote.
+Autor, licença e links de todas as imagens dos quatro lotes estão em
 [`rotulacao/creditos.csv`](rotulacao/creditos.csv).
 Dos bancos públicos baixei somente as imagens; todas as anotações foram feitas neste projeto.

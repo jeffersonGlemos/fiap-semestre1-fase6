@@ -29,7 +29,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).with_name("roboflow.env"))       # chave, workspace e projeto; não sobrescreve o ambiente
 
-LABELMAP = str(Path(__file__).with_name("labels.txt"))       # 0=vaca ... 4=cerca
+LABELMAP = str(Path(__file__).with_name("labels.txt"))       # 0=vaca ... 5=caneca
 
 
 def conectar(nome_projeto):

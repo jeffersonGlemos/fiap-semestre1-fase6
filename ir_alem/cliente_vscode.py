@@ -12,12 +12,20 @@ escorpião acendem uma faixa vermelha de alerta e geram uma linha em alertas.csv
 uma linha em frames.csv, que é analisado no notebook.
 Teclas: q encerra; s salva o quadro atual em prints/.
 
+Onde a inferência roda no PC é parametrizável, porque desenvolvi no Mac (Apple Silicon) e o projeto
+também precisa rodar em Windows e Linux:
+    --dispositivo auto|cpu|mps|cuda          para o .pt (torch.hub); auto escolhe cuda > mps > cpu
+    --provedor auto|cpu|coreml|cuda|directml para o .onnx (ONNX Runtime); ver backends/onnx_backend.py
+O que foi efetivamente usado é impresso no início e gravado na coluna `execucao` do frames.csv.
+
 Uso:
     python cliente_vscode.py --fonte http://192.168.0.42:8000/stream --modelo best.pt   # Pi, BASE
     python cliente_vscode.py --fonte http://192.168.0.50/stream --modelo best.pt        # ESP32-CAM
     python cliente_vscode.py --fonte 0 --modelo best.pt                                 # webcam do PC
     python cliente_vscode.py --fonte http://192.168.0.42:8000/stream                    # Pi + Hailo, PLUS
     python cliente_vscode.py --fonte demo.mp4 --modelo best.onnx --sem-janela --max-frames 100
+    python cliente_vscode.py --fonte http://<celular>:8080/video --modelo best.pt --dispositivo mps
+    python cliente_vscode.py --fonte <url> --modelo yolov5s.onnx --classes coco --provedor coreml
 """
 
 import argparse
@@ -32,7 +40,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from backends import CRITICAS, anotar
+from backends import CRITICAS, anotar, resolver_classes
 
 VERMELHO = (0, 0, 255)
 
@@ -152,20 +160,35 @@ class MonitorRemoto:
             time.sleep(self.intervalo)
 
 
+def escolher_dispositivo(pedido):
+    """Resolve --dispositivo para o PyTorch: auto prefere CUDA (NVIDIA), depois MPS (Apple Silicon), depois CPU."""
+    import torch
+    cuda = torch.cuda.is_available()
+    mps = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+    if pedido == "auto":
+        return "cuda" if cuda else ("mps" if mps else "cpu")
+    if (pedido == "cuda" and not cuda) or (pedido == "mps" and not mps):
+        raise SystemExit(f"--dispositivo {pedido} não está disponível nesta máquina; use auto ou cpu.")
+    return pedido
+
+
 class ModeloLocal:
     """Modo BASE: carrega o best.pt (YOLOv5 via torch.hub) ou um .onnx (dispensa o PyTorch)."""
 
-    def __init__(self, caminho, conf):
+    def __init__(self, caminho, conf, classes="fase6", provedor="auto", dispositivo="auto"):
         self.onnx = caminho.suffix == ".onnx"
         if self.onnx:
             from backends.onnx_backend import OnnxBackend
-            self.modelo = OnnxBackend(caminho, conf=conf)
+            self.modelo = OnnxBackend(caminho, conf=conf, classes=resolver_classes(classes), provedor=provedor)
+            self.execucao = f"onnx:{self.modelo.provedor}"   # ex.: onnx:CoreMLExecutionProvider
         else:
             import torch                                     # import tardio: o modo PLUS não usa PyTorch
-            self.modelo = torch.hub.load("ultralytics/yolov5", "custom", path=str(caminho),
+            disp = escolher_dispositivo(dispositivo)
+            self.modelo = torch.hub.load("ultralytics/yolov5", "custom", path=str(caminho), device=disp,
                                          trust_repo=True)   # evita a confirmação interativa das versões novas do torch
             self.modelo.conf = conf
-            self.nomes = self.modelo.names                   # nomes das classes gravados no best.pt
+            self.nomes = self.modelo.names                   # nomes das classes gravados no best.pt (ignora --classes)
+            self.execucao = f"pt:{disp}"                     # ex.: pt:mps
 
     def detect(self, frame):
         if self.onnx:
@@ -188,11 +211,35 @@ def painel(frame, linhas, alerta):
         y += 24
 
 
+def abrir_log(caminho, cabecalho):
+    """Abre o CSV em modo de acréscimo. Se ele foi criado com outras colunas (versão anterior do cliente),
+    o arquivo antigo é renomeado, para que o notebook nunca leia colunas desalinhadas."""
+    if caminho.exists() and caminho.stat().st_size:
+        with open(caminho, newline="", encoding="utf-8", errors="replace") as f:
+            atual = next(csv.reader(f), [])
+        if atual != cabecalho:
+            antigo = caminho.with_name(f"{caminho.stem}_antigo_{datetime.now():%Y%m%d_%H%M%S}.csv")
+            caminho.rename(antigo)
+            print(f"{caminho.name} tinha outras colunas; o arquivo anterior foi preservado como {antigo.name}")
+    arquivo = open(caminho, "a", newline="", encoding="utf-8")   # explícito: no Windows o padrão seria cp1252 ("SÓ VÍDEO")
+    escritor = csv.writer(arquivo)
+    if arquivo.tell() == 0:                                  # o cabeçalho só é escrito em arquivo novo
+        escritor.writerow(cabecalho)
+    return arquivo, escritor
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--fonte", required=True, help="URL do stream MJPEG, índice da webcam ou arquivo de vídeo")
     ap.add_argument("--modelo", type=Path, help="best.pt (ou .onnx): inferência no PC, modo BASE")
     ap.add_argument("--conf", type=float, default=0.25)
+    ap.add_argument("--classes", default="fase6",
+                    help="nomes das classes do .onnx: fase6 (padrão), coco (yolov5s.onnx, para teste) ou arquivo .txt; "
+                         "o .pt já traz os nomes gravados")
+    ap.add_argument("--provedor", default="auto", choices=["auto", "cpu", "coreml", "cuda", "directml"],
+                    help="execution provider do ONNX Runtime para o .onnx (auto: cuda > coreml > directml > cpu)")
+    ap.add_argument("--dispositivo", default="auto", choices=["auto", "cpu", "mps", "cuda"],
+                    help="dispositivo do PyTorch para o .pt (auto: cuda > mps > cpu)")
     ap.add_argument("--logs", type=Path, default=Path("logs"), help="pasta onde ficam frames.csv e alertas.csv")
     ap.add_argument("--sem-janela", action="store_true", help="não abre a janela de vídeo (testes ou SSH)")
     ap.add_argument("--max-frames", type=int, default=0, help="encerra após N quadros (0 = sem limite)")
@@ -200,25 +247,29 @@ def main():
 
     remoto = args.fonte.startswith("http")
     fonte = FonteMJPEG(args.fonte) if remoto else FonteLocal(args.fonte)
-    modelo = ModeloLocal(args.modelo, args.conf) if args.modelo else None
+    modelo = (ModeloLocal(args.modelo, args.conf, args.classes, args.provedor, args.dispositivo)
+              if args.modelo else None)
     base = args.fonte.rsplit("/", 1)[0] if remoto else None
     monitor = MonitorRemoto(base) if remoto else None
     plus = monitor if monitor and monitor.infere and not modelo else None
     modo = "BASE" if modelo else ("PLUS" if plus else "SÓ VÍDEO")
-    print(f"Modo {modo} | fonte {args.fonte}")
+    if modelo:
+        execucao = modelo.execucao
+    elif plus:                                               # no PLUS, quem informa onde roda é o servidor (/saude)
+        execucao = ":".join(str(v) for v in ("remoto", plus.info.get("inferencia"), plus.info.get("provedor")) if v)
+    else:
+        execucao = ""
+    print(f"Modo {modo} | fonte {args.fonte} | execução {execucao or 'sem inferência'}")
 
     args.logs.mkdir(parents=True, exist_ok=True)
     if not args.sem_janela:
         Path("prints").mkdir(exist_ok=True)                  # pasta usada pela tecla s
     sessao = datetime.now().strftime("%Y%m%d_%H%M%S")
-    f_frames = open(args.logs / "frames.csv", "a", newline="")
-    f_alertas = open(args.logs / "alertas.csv", "a", newline="")
-    log_frames, log_alertas = csv.writer(f_frames), csv.writer(f_alertas)
-    if f_frames.tell() == 0:                                 # o cabeçalho só é escrito em arquivo novo
-        log_frames.writerow(["sessao", "timestamp", "frame", "modo", "fps", "latencia_fim_a_fim_ms",
-                             "rtt_rede_ms", "latencia_inferencia_ms", "n_deteccoes", "classes", "alerta"])
-    if f_alertas.tell() == 0:
-        log_alertas.writerow(["sessao", "timestamp", "frame", "classe", "conf", "x1", "y1", "x2", "y2"])
+    f_frames, log_frames = abrir_log(args.logs / "frames.csv", [
+        "sessao", "timestamp", "frame", "modo", "execucao", "fps", "latencia_fim_a_fim_ms",
+        "rtt_rede_ms", "latencia_inferencia_ms", "n_deteccoes", "classes", "alerta"])
+    f_alertas, log_alertas = abrir_log(args.logs / "alertas.csv", [
+        "sessao", "timestamp", "frame", "classe", "conf", "x1", "y1", "x2", "y2"])
 
     n, fps, t_fps, janela = 0, 0.0, time.time(), 0
     try:
@@ -255,7 +306,7 @@ def main():
             if criticas:
                 print(f"[{datetime.now():%H:%M:%S}] ALERTA: {alerta}")
             log_frames.writerow([
-                sessao, f"{agora:.3f}", n, modo, round(fps, 2),
+                sessao, f"{agora:.3f}", n, modo, execucao, round(fps, 2),
                 round(fim_a_fim, 1) if fim_a_fim is not None else "",
                 round(rtt, 1) if rtt is not None else "",
                 round(ms_inf, 1) if ms_inf is not None else "",
@@ -264,7 +315,7 @@ def main():
 
             if not args.sem_janela:
                 painel(frame, [
-                    f"modo {modo}  |  {fps:4.1f} FPS",
+                    f"modo {modo}  |  {fps:4.1f} FPS  |  {execucao}",
                     f"fim a fim: {fim_a_fim:.0f} ms" if fim_a_fim is not None else "fim a fim: n/d",
                     f"inferencia: {ms_inf:.0f} ms" if ms_inf is not None else "inferencia: n/d",
                     f"RTT rede: {rtt:.0f} ms" if rtt is not None else "",

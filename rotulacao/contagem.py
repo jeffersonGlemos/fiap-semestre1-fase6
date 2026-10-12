@@ -14,7 +14,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-CLASSES = ["vaca", "cobra", "escorpiao", "arvore", "cerca"]  # mesma ordem do labels.txt
+CLASSES = ["vaca", "cobra", "escorpiao", "arvore", "cerca", "caneca"]  # mesma ordem do labels.txt
 MINIMO = {"train": 32, "val": 4, "test": 4}                   # mínimo de imagens por classe
 EXT_IMG = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}          # extensões aceitas pelo YOLOv5
 

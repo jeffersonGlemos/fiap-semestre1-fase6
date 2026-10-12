@@ -1,4 +1,6 @@
-# PC (cliente_vscode.py, modo BASE com best.pt): Python 3.10 a 3.12
+# PC (cliente_vscode.py, modo BASE com best.pt): Python 3.10 a 3.12. Testado em macOS (Apple Silicon);
+# a mesma lista instala em Linux e Windows. O PyTorch do pip já inclui o MPS no Mac; em Linux/Windows
+# com NVIDIA, para usar --dispositivo cuda, instale o torch com CUDA pelo seletor de pytorch.org.
 opencv-python>=4.8          # janela, decodificação do MJPEG e desenho das caixas
 numpy>=1.24
 torch>=2.1                  # carrega o best.pt via torch.hub (ultralytics/yolov5)
@@ -10,5 +12,18 @@ requests>=2.31
 tqdm>=4.66
 seaborn>=0.13
 ultralytics>=8.0            # o hub do YOLOv5 importa utilitários deste pacote
-onnxruntime>=1.17           # opcional: executa o best.onnx no PC sem PyTorch
 matplotlib>=3.7             # gráficos do notebook do Ir Além
+
+# ONNX Runtime (cliente com best.onnx e --provedor). Instale APENAS UM dos três pacotes, porque eles
+# ocupam o mesmo módulo `onnxruntime` e se sobrescrevem:
+#   onnxruntime            CPU em macOS, Linux e Windows; no Mac já inclui o CoreML EP (--provedor coreml)
+#   onnxruntime-gpu        Linux/Windows com GPU NVIDIA e CUDA (--provedor cuda)
+#   onnxruntime-directml   Windows com qualquer GPU DirectX 12 (--provedor directml)
+# O padrão abaixo funciona em todos os sistemas. Para trocar: pip uninstall onnxruntime && pip install <outro>.
+onnxruntime>=1.17
+
+# Exportação (exportar_modelo.py): onnx e onnxslim são usados pelo export.py do YOLOv5.
+onnx>=1.12
+onnxslim>=0.1
+# Opcional, só para --formato coreml no Mac: pip install coremltools. No meu teste, o coremltools 9.0
+# converteu com torch 2.7, mas falhou com torch 2.14; o ONNX não tem essa restrição.

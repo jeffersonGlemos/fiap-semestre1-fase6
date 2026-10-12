@@ -6,8 +6,10 @@ Cada backend expõe `detect(frame_bgr) -> list[dict]`, e cada dict tem o formato
 
 import cv2
 
-CLASSES = ["vaca", "cobra", "escorpiao", "arvore", "cerca"]   # mesma ordem do data.yaml do treino
-CRITICAS = {"cobra", "escorpiao"}                            # classes que disparam alerta no cliente
+# Mesma ordem do data.yaml do treino. A caneca entrou por último para não renumerar as cinco classes
+# anteriores; ela é o objeto que levo para a demonstração ao vivo, já que não há vaca nem cobra à mão.
+CLASSES = ["vaca", "cobra", "escorpiao", "arvore", "cerca", "caneca"]
+CRITICAS = {"cobra", "escorpiao"}                            # classes que disparam alerta (a caneca não dispara)
 
 # As 80 classes do COCO, na ordem usada pelos modelos pré-treinados (yolov5s.pt, .hef do Model Zoo).
 # Usei esta lista para validar o pipeline antes de ter o best.pt/best.hef do projeto compilado.
@@ -26,7 +28,7 @@ COCO = [
 
 
 def resolver_classes(valor):
-    """None ou "fase6" → as 5 classes do projeto; "coco" → as 80 do COCO; caminho .txt → um nome por linha."""
+    """None ou "fase6" → as 6 classes do projeto; "coco" → as 80 do COCO; caminho .txt → um nome por linha."""
     if valor in (None, "fase6"):
         return CLASSES
     if valor == "coco":
@@ -40,14 +42,18 @@ CORES = {
     "escorpiao": (0, 140, 255),
     "arvore": (60, 120, 30),
     "cerca": (200, 160, 40),
+    "caneca": (200, 80, 200),
 }
 
 
-def carregar_backend(nome, modelo, conf=0.25, classes=CLASSES):
-    """Importa o backend apenas quando ele é pedido, para que um Pi sem Hailo não precise do hailo_platform."""
+def carregar_backend(nome, modelo, conf=0.25, classes=CLASSES, provedor="auto"):
+    """Importa o backend apenas quando ele é pedido, para que um Pi sem Hailo não precise do hailo_platform.
+
+    `provedor` só vale para o ONNX (auto, cpu, coreml, cuda ou directml); o Hailo sempre usa a NPU.
+    """
     if nome == "onnx":
         from .onnx_backend import OnnxBackend
-        return OnnxBackend(modelo, conf=conf, classes=classes)
+        return OnnxBackend(modelo, conf=conf, classes=classes, provedor=provedor)
     if nome == "hailo":
         from .hailo_backend import HailoBackend
         return HailoBackend(modelo, conf=conf, classes=classes)
