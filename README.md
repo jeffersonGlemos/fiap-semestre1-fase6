@@ -1,7 +1,7 @@
 # FarmTech Solutions: visão computacional para um rover de pasto
 
 **FIAP · Inteligência Artificial · Fase 6 (Redes Neurais e Visão Computacional)**
-Autor: Jefferson Gonçalves Lemos (RM572399)
+Autor: Jefferson Gonçalves Lemos (RM572399) · Grupo 22 (individual)
 
 A FarmTech está prototipando um rover autônomo de inspeção de pasto. Neste repositório está o módulo
 de visão que desenvolvi para esse rover: uma YOLO customizada que, a partir da câmera, responde onde
@@ -32,7 +32,6 @@ não precisem ser renumerados.
 | Notebook Ir Além | [`ir_alem/JeffersonGoncalvesLemos_rm572399_pbl_fase6_ir_alem.ipynb`](ir_alem/JeffersonGoncalvesLemos_rm572399_pbl_fase6_ir_alem.ipynb) |
 | Vídeo: Entregas 1 e 2 (até 5 min) | <!-- TODO: link YouTube não listado --> _em breve_ |
 | Vídeo: Ir Além (até 5 min) | <!-- TODO: link YouTube não listado --> _em breve_ |
-| Vídeo: Por que Hailo (plus) | <!-- TODO: link YouTube não listado --> _em breve_ |
 
 O notebook principal cobre:
 

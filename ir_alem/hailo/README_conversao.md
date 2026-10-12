@@ -88,8 +88,7 @@ Enquanto o `best.hef` não existe, o pipeline pode ser validado com um `.hef` pr
 
 O `hailortcli benchmark` mede apenas o chip. O FPS de ponta a ponta (câmera → NPU → Wi-Fi → PC) vem
 do `logs/frames.csv` do cliente. A diferença entre os dois números corresponderá ao custo de captura,
-pré-processamento e rede, e é um dos pontos que pretendo analisar no notebook e no vídeo complementar
-sobre a escolha do Hailo.
+pré-processamento e rede, e é um dos pontos que pretendo analisar no notebook.
 
 ## Pontos de atenção
 
