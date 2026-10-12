@@ -1,20 +1,24 @@
 """Envia as pré-rotulações ao Roboflow para revisão e baixa a versão revisada.
 
-Fluxo:
+Fluxo previsto:
   1. enviar: as imagens e os .txt do autolabel viram anotações editáveis no Roboflow Annotate;
   2. no navegador, todas as caixas são revisadas e corrigidas à mão, e uma versão é gerada
      (Generate, sem augmentation);
   3. baixar: traz a versão no formato YOLOv5 e junta tudo em images/ e labels/ para o split.py.
 
+Nesta versão do dataset, só a etapa 1 foi executada: as imagens estão no projeto fase6 do
+Roboflow, mas a revisão caixa a caixa (etapa 2) não foi feita por limitação de tempo, e o
+dataset publicado saiu direto do autolabel.py. As etapas 2 e 3 ficam como próximo passo.
+
 Requer a chave da API do Roboflow (Settings → API Keys em app.roboflow.com). A configuração
 fica em rotulacao/roboflow.env, que está fora do controle de versão: copie o modelo versionado
 rotulacao/roboflow.env.exemplo para roboflow.env e preencha ROBOFLOW_API_KEY. O mesmo arquivo
 aceita ROBOFLOW_WORKSPACE (vazio usa o workspace padrão da conta) e ROBOFLOW_PROJETO (padrão
-farmtech-fase6). Variáveis já definidas no ambiente têm precedência sobre o arquivo.
+fase6). Variáveis já definidas no ambiente têm precedência sobre o arquivo.
 
 Uso:
-    uv run roboflow_sync.py enviar saida/ --projeto farmtech-fase6
-    uv run roboflow_sync.py baixar revisado/ --projeto farmtech-fase6 --versao 1
+    uv run roboflow_sync.py enviar rotulado/ --projeto fase6
+    uv run roboflow_sync.py baixar revisado/ --projeto fase6 --versao 1
 """
 
 import argparse
@@ -89,12 +93,14 @@ def main():
     e = sub.add_parser("enviar", help="envia as imagens e as pré-rotulações")
     e.add_argument("pasta", type=Path, help="pasta com images/ e labels/ (saída do autolabel)")
     # ROBOFLOW_PROJETO (roboflow.env) define o projeto padrão dos dois subcomandos
-    e.add_argument("--projeto", default=os.environ.get("ROBOFLOW_PROJETO") or "farmtech-fase6")
+    e.add_argument("--projeto", default=os.environ.get("ROBOFLOW_PROJETO") or "fase6",
+                   help="projeto no Roboflow (padrão: ROBOFLOW_PROJETO ou fase6)")
     e.add_argument("--lote", default="autolabel", help="nome do batch no Roboflow")
     b = sub.add_parser("baixar", help="baixa a versão revisada no formato YOLOv5")
-    b.add_argument("pasta", type=Path)
-    b.add_argument("--projeto", default=os.environ.get("ROBOFLOW_PROJETO") or "farmtech-fase6")
-    b.add_argument("--versao", type=int, required=True)
+    b.add_argument("pasta", type=Path, help="pasta de destino; recebe images/ e labels/ para o split.py")
+    b.add_argument("--projeto", default=os.environ.get("ROBOFLOW_PROJETO") or "fase6",
+                   help="projeto no Roboflow (padrão: ROBOFLOW_PROJETO ou fase6)")
+    b.add_argument("--versao", type=int, required=True, help="número da versão gerada no Roboflow (Generate)")
     args = ap.parse_args()
     enviar(args) if args.cmd == "enviar" else baixar(args)
 

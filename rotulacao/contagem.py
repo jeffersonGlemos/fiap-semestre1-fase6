@@ -1,15 +1,19 @@
-"""Contagem do dataset rotulado (pipeline autolabel → Roboflow, formato YOLO).
+"""Contagem do dataset rotulado no formato YOLO (pipeline autolabel.py → split.py).
 
 Verifica, para cada split (train/val/test):
   - quantas IMAGENS contêm cada classe (é essa contagem que o enunciado usa no mínimo de 32/4/4);
   - quantas INSTÂNCIAS (caixas) existem de cada classe;
   - problemas de rotulação: imagem sem .txt, .txt sem imagem, classe inválida,
     coordenadas fora de [0, 1] e linhas mal formatadas.
+Também acusa vazamento: a mesma imagem em dois splits. O código de saída é 0 só quando tudo passa,
+por isso o split.py e o publicar_dataset.py usam este script como portão antes do treino.
 
-Uso no Colab:   !python contagem.py /content/drive/MyDrive/FarmTech_Fase6/dataset
-Uso local:      python contagem.py caminho/do/dataset
+Uso:
+    uv run contagem.py dataset/                      # local, saída do split.py
+    !python contagem.py /content/dataset             # no Colab, onde o notebook descompacta o zip
 """
 
+import argparse
 import sys
 from collections import Counter
 from pathlib import Path
@@ -70,7 +74,10 @@ def contar_split(raiz, split):
 
 
 def main():
-    raiz = Path(sys.argv[1] if len(sys.argv) > 1 else "dataset")
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("dataset", type=Path, nargs="?", default=Path("dataset"),
+                    help="pasta com train/, val/ e test/, cada uma com images/ e labels/ (padrão: dataset)")
+    raiz = ap.parse_args().dataset
     resultados = {s: contar_split(raiz, s) for s in MINIMO}
     ok = True
 

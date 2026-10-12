@@ -1,4 +1,7 @@
-"""Coleta de fotos em campo para o lote A (cenas de pasto), executada no Raspberry Pi 5.
+"""Coleta de fotos em campo para ampliar o lote A (cenas de pasto), executada no Raspberry Pi 5.
+
+As fotos atuais do lote A vêm do Wikimedia Commons (baixar_commons.py); este script fica pronto
+para acrescentar fotos próprias, tiradas com a câmera que o rover usaria.
 
 O script tira uma foto a cada N segundos durante uma caminhada pelo pasto. Todas as fotos de uma
 execução (uma caminhada) recebem o mesmo carimbo de início, para que o split.py as mantenha juntas:

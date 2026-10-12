@@ -5,11 +5,12 @@ fotos quase idênticas não fiquem ao mesmo tempo no treino e na avaliação. Va
 preenchidos primeiro, até cada classe atingir o mínimo de 4 imagens; o restante vai para train.
 
 Uso:
-    uv run split.py saida/ dataset/
-    uv run split.py saida/ dataset/ --grupo "pasto_\\d{8}_\\d{2}"   # agrupa por data+hora da foto
+    uv run split.py rotulado/ dataset/
+    uv run split.py rotulado/ dataset/ --grupo "pasto_\\d{8}_\\d{2}"   # fotos do coleta.py: agrupa por data+hora
 
-Sem --grupo, cada imagem forma um grupo próprio, o que é adequado para as cobras e os escorpiões
-dos bancos públicos, já que cada foto vem de uma observação independente.
+Sem --grupo, cada imagem forma um grupo próprio. É o caso do dataset atual: todas as fotos vêm de
+bancos públicos (Wikimedia Commons e iNaturalist), cada uma de um arquivo ou de uma observação
+independente, e nenhuma tem data e hora no nome.
 """
 
 import argparse
@@ -33,7 +34,7 @@ def main():
     ap.add_argument("origem", type=Path, help="pasta com images/ e labels/ (saída do autolabel ou do Roboflow)")
     ap.add_argument("destino", type=Path, help="gera destino/{train,val,test}/{images,labels}")
     ap.add_argument("--grupo", help="regex aplicada ao nome; o trecho casado define o grupo")
-    ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--seed", type=int, default=42, help="semente do sorteio dos grupos (padrão 42)")
     args = ap.parse_args()
 
     # Agrupa as imagens e registra quais classes cada grupo contém

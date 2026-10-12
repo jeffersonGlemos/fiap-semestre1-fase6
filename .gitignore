@@ -9,10 +9,11 @@ rotulado/
 dataset/
 *.zip
 *.pt
+!ir_alem/modelos/best_portavel.pt
 *.onnx
 *.hef
+*.mlpackage
 runs/
-.remember/
 .DS_Store
 .ipynb_checkpoints/
 

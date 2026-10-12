@@ -1,17 +1,24 @@
 /*
  * esp32cam_stream.ino: ESP32-CAM (AI-Thinker) transmitindo MJPEG por Wi-Fi.
  *
- * Parti do exemplo CameraWebServer e mantive apenas o que o cliente_vscode.py consome.
+ * Situação: escrito a partir do exemplo CameraWebServer, mas NÃO compilado nem testado em uma placa
+ * até a entrega. Mantive apenas o que o cliente_vscode.py consome.
  * A ESP32-CAM não tem memória para rodar o YOLOv5 do projeto, então nesta placa ela atua só
  * como câmera Wi-Fi e a inferência acontece no PC (modo BASE).
- * Rotas (porta 80), iguais às do camera_server.py:
- *   /stream     vídeo MJPEG contínuo
- *   /frame.jpg  um único quadro
- *   /saude      status em JSON
+ *
+ * Rotas, com os mesmos nomes do camera_server.py, em dois servidores HTTP:
+ *   porta 80: /frame.jpg  um único quadro
+ *             /saude      status em JSON (o cliente mede o RTT por aqui)
+ *   porta 81: /stream     vídeo MJPEG contínuo
+ * O servidor HTTP do ESP-IDF atende as requisições em uma única tarefa, e o handler do /stream só
+ * retorna quando o cliente desconecta. Se o /stream ficasse na porta 80, o /saude e o /frame.jpg
+ * ficariam bloqueados durante a transmissão. Por isso, como no CameraWebServer, o stream tem um
+ * servidor próprio na porta 81.
  *
  * Arduino IDE: placa "AI Thinker ESP32-CAM", Partition Scheme "Huge APP", PSRAM habilitada.
  * Após a gravação, o Monitor Serial (115200) mostra o IP; no PC, o cliente é iniciado com:
- *   python cliente_vscode.py --fonte http://<IP>/stream --modelo best.pt
+ *   python cliente_vscode.py --fonte http://<IP>:81/stream --saude http://<IP> --modelo modelos/best_portavel.pt
+ * (--saude aponta para a porta 80, porque o cliente procuraria o /saude na porta do stream)
  */
 
 #include "esp_camera.h"
@@ -46,9 +53,10 @@ const char *WIFI_SENHA = "SUA_SENHA";
 static const char *TIPO_STREAM = "multipart/x-mixed-replace;boundary=" FRONTEIRA;
 static const char *SEPARADOR = "\r\n--" FRONTEIRA "\r\n";
 // X-Timestamp em epoch (sincronizado por NTP): o cliente usa o valor para medir a latência da captura até a tela
-static const char *CABECALHO = "Content-Type: image/jpeg\r\nContent-Length: %u\r\nX-Timestamp: %ld.%06ld\r\n\r\n";
+static const char *CABECALHO = "Content-Type: image/jpeg\r\nContent-Length: %u\r\nX-Timestamp: %lld.%06ld\r\n\r\n";
 
-httpd_handle_t servidor = NULL;
+httpd_handle_t servidor = NULL;         // porta 80: /frame.jpg e /saude
+httpd_handle_t servidorStream = NULL;   // porta 81: /stream
 
 bool iniciarCamera() {
   camera_config_t c = {};
@@ -79,7 +87,9 @@ static esp_err_t rotaStream(httpd_req_t *req) {
     if (!fb) return ESP_FAIL;
     struct timeval agora;
     gettimeofday(&agora, NULL);
-    size_t n = snprintf(cab, sizeof(cab), CABECALHO, fb->len, agora.tv_sec, agora.tv_usec);
+    // time_t tem 64 bits nas versões recentes do ESP-IDF: o cast para long long casa com o %lld
+    size_t n = snprintf(cab, sizeof(cab), CABECALHO, (unsigned)fb->len,
+                        (long long)agora.tv_sec, (long)agora.tv_usec);
     esp_err_t r = httpd_resp_send_chunk(req, SEPARADOR, strlen(SEPARADOR));
     if (r == ESP_OK) r = httpd_resp_send_chunk(req, cab, n);
     if (r == ESP_OK) r = httpd_resp_send_chunk(req, (const char *)fb->buf, fb->len);
@@ -112,12 +122,18 @@ void iniciarServidor() {
   httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
   cfg.server_port = 80;
   httpd_uri_t rotas[] = {
-    {"/stream", HTTP_GET, rotaStream, NULL},
     {"/frame.jpg", HTTP_GET, rotaFrame, NULL},
     {"/saude", HTTP_GET, rotaSaude, NULL},
   };
   if (httpd_start(&servidor, &cfg) == ESP_OK)
     for (auto &r : rotas) httpd_register_uri_handler(servidor, &r);
+
+  // Segundo servidor, só para o /stream; a porta de controle também precisa ser diferente
+  httpd_uri_t rotaDoStream = {"/stream", HTTP_GET, rotaStream, NULL};
+  cfg.server_port = 81;
+  cfg.ctrl_port += 1;
+  if (httpd_start(&servidorStream, &cfg) == ESP_OK)
+    httpd_register_uri_handler(servidorStream, &rotaDoStream);
 }
 
 void setup() {
@@ -131,7 +147,7 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED) { delay(300); Serial.print("."); }
   configTime(-3 * 3600, 0, "pool.ntp.org");  // sincroniza o relógio em epoch para o X-Timestamp
   iniciarServidor();
-  Serial.printf("\nStream pronto: http://%s/stream  (RSSI %d dBm)\n",
+  Serial.printf("\nStream pronto: http://%s:81/stream  (/saude e /frame.jpg na porta 80; RSSI %d dBm)\n",
                 WiFi.localIP().toString().c_str(), WiFi.RSSI());
 }
 

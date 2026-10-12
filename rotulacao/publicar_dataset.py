@@ -68,7 +68,8 @@ def zipar(dataset, saida):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("dataset", type=Path, help="pasta gerada pelo split.py (train/val/test)")
-    ap.add_argument("--saida", type=Path, default=Path("farmtech_fase6_dataset.zip"))
+    ap.add_argument("--saida", type=Path, default=Path("farmtech_fase6_dataset.zip"),
+                    help="caminho do zip gerado (padrão: farmtech_fase6_dataset.zip na pasta atual)")
     ap.add_argument("--forcar", action="store_true", help="zipa mesmo se o contagem.py reprovar")
     args = ap.parse_args()
 

@@ -1,9 +1,14 @@
 # Conversão best.pt → .hef (Hailo-8L)
 
-Este documento registra o caminho que segui para levar o modelo treinado na Entrega 1 até a NPU do
+Este documento registra o caminho que planejei para levar o modelo treinado na Entrega 1 até a NPU do
 Raspberry Pi 5. Optei pelo Hailo-8L porque ele executa a inferência no próprio dispositivo, sem
 depender do PC nem de nuvem, com 13 TOPS em INT8 e consumo de poucos watts, o que mantém a latência
 baixa e é compatível com a alimentação de um equipamento embarcado.
+
+**Situação atual:** a exportação para ONNX (passo 1) está feita e validada. As etapas do Hailo (calibração,
+quantização INT8, compilação do `best.hef`, benchmark e execução no Pi) ainda não foram executadas; os
+passos 2 e 3 descrevem o plano, e os resultados entram na seção 8 do notebook do Ir Além depois de
+medidos.
 
 A compilação **não roda no Pi**: o Hailo Dataflow Compiler (DFC) exige Linux x86_64 (Ubuntu 22.04,
 WSL2 ou Docker).
@@ -17,9 +22,9 @@ best.pt ──export──> best.onnx ──parse──> .har ──optimize (IN
 - Conta gratuita no [Hailo Developer Zone](https://hailo.ai/developer-zone/). A liberação do download não é imediata.
 - DFC e Hailo Model Zoo (`hailo_model_zoo`) na **mesma versão** do HailoRT instalado no Pi
   (`hailortcli --version` no Pi). Com versões diferentes, o `.hef` gerado é recusado pelo Pi.
-- Cerca de 100 imagens de **calibração**. Usei os descartes do lote A (fotos do pasto que não
-  entraram no dataset) e deixei o conjunto de teste de fora, para que ele continue servindo de
-  medida independente depois da quantização.
+- Cerca de 100 imagens de **calibração**, ainda a separar. O plano é usar imagens representativas do
+  dataset, das seis classes, tiradas dos conjuntos de treino e validação, sem nenhuma imagem do conjunto
+  de teste, para que ele continue servindo de medida independente depois da quantização.
 
 ## 1. Exportar para ONNX
 
@@ -48,9 +53,9 @@ e as detecções do ONNX Runtime coincidiram com as do PyTorch nos mesmos quadro
 com confiança 0,94 nos dois). A opção `--formato coreml` também gera um `.mlpackage` para comparação
 no Mac, mas ele não participa da conversão para o Hailo.
 
-## 2. Compilar com o Model Zoo (x86)
+## 2. Compilar com o Model Zoo (x86) · planejado
 
-Usei o config pronto do `yolov5s` como base, porque ele já define os *end nodes* e o NMS no chip.
+Vou usar o config pronto do `yolov5s` como base, porque ele já define os *end nodes* e o NMS no chip.
 
 ```bash
 hailomz compile yolov5s \
@@ -61,7 +66,7 @@ hailomz compile yolov5s \
     --performance
 ```
 
-O comando executa as três etapas do DFC:
+O comando deve executar as três etapas do DFC:
 
 | Etapa | O que faz | Saída |
 |---|---|---|
@@ -69,7 +74,7 @@ O comando executa as três etapas do DFC:
 | `optimize` | quantiza para INT8 usando as imagens de calibração | `.har` quantizado |
 | `compile` | aloca as camadas nos recursos do chip | `best.hef` |
 
-## 3. Rodar no Pi
+## 3. Rodar no Pi · planejado
 
 ```bash
 sudo apt install hailo-all && sudo reboot
@@ -82,9 +87,9 @@ Enquanto o `best.hef` não existe, o pipeline pode ser validado com um `.hef` pr
 (por exemplo, os de `/usr/share/hailo-models/`) e a opção `--classes coco` do `camera_server.py`.
 
 O `hailortcli benchmark` mede apenas o chip. O FPS de ponta a ponta (câmera → NPU → Wi-Fi → PC) vem
-do `logs/frames.csv` do cliente. A diferença entre os dois números corresponde ao custo de captura,
-pré-processamento e rede, e é um dos pontos que analiso no notebook e no vídeo complementar sobre a
-escolha do Hailo.
+do `logs/frames.csv` do cliente. A diferença entre os dois números corresponderá ao custo de captura,
+pré-processamento e rede, e é um dos pontos que pretendo analisar no notebook e no vídeo complementar
+sobre a escolha do Hailo.
 
 ## Pontos de atenção
 
@@ -97,9 +102,9 @@ escolha do Hailo.
 3. **Ordem das classes:** `vaca, cobra, escorpiao, arvore, cerca, caneca`, a mesma do `labels.txt`.
    Acrescentei a `caneca` no fim da lista para não renumerar as cinco classes que já
    existiam; ela é o objeto da demonstração ao vivo e não dispara alerta.
-4. **O INT8 pode derrubar as classes pequenas** (`escorpiao`, `cobra`). Por isso comparo o mAP do
-   FP32 (Colab) com o do INT8 (Hailo) no mesmo conjunto de teste. Uma eventual queda é resultado do
-   estudo, não um defeito da conversão.
+4. **O INT8 pode derrubar as classes pequenas** (`escorpiao`, `cobra`). Por isso, depois da
+   compilação, vou comparar o mAP do FP32 (Colab) com o do INT8 (Hailo) no mesmo conjunto de teste.
+   Uma eventual queda é resultado do estudo, não um defeito da conversão.
 5. **Plano B:** se a compilação não for concluída, o servidor roda com `--inferencia onnx --modelo best.onnx`
    (CPU do Pi), mantendo a mesma ponte Wi-Fi e o mesmo cliente. É exatamente o mesmo arquivo gerado no
    passo 1. No Pi, `--provedor auto` resulta em `CPUExecutionProvider`; no PC de desenvolvimento, o mesmo

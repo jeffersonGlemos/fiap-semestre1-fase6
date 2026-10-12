@@ -110,7 +110,7 @@ def detalhes(titulos, largura):
     """Gera (título, imageinfo) em lotes de 50 títulos, o máximo por consulta da API."""
     for i in range(0, len(titulos), 50):
         dados = consultar(prop="imageinfo", titles="|".join(titulos[i:i + 50]),
-                          iiprop="url|size|mime|extmetadata", iiurlwidth=largura)  # iiurlwidth gera o thumburl
+                          iiprop="url|size|mime|extmetadata|user", iiurlwidth=largura)  # iiurlwidth gera o thumburl
         for pagina in dados["query"]["pages"]:
             if pagina.get("imageinfo"):
                 yield pagina["title"], pagina["imageinfo"][0]
@@ -120,6 +120,19 @@ def texto_meta(meta, chave):
     """Valor de um campo do extmetadata como texto puro (o Commons devolve HTML)."""
     valor = meta.get(chave, {}).get("value", "")
     return html.unescape(re.sub(r"<[^>]+>", "", valor)).strip()
+
+
+def autor(meta, info):
+    """Autor da foto: Artist, Attribution ou Credit do extmetadata, nessa ordem.
+
+    Algumas páginas antigas não preenchem nenhum desses campos. Nesse caso registro o usuário que
+    enviou o arquivo ao Commons, marcado como tal, porque em transferências do Flickr ou de outra
+    Wikipédia quem enviou pode não ser o autor e a página do arquivo precisa ser conferida.
+    """
+    for chave in ("Artist", "Attribution", "Credit"):
+        if valor := texto_meta(meta, chave):
+            return valor
+    return f"{info['user']} (enviou ao Commons)" if info.get("user") else "desconhecido"
 
 
 def fundo_branco(conteudo, fracao=0.6):
@@ -199,7 +212,7 @@ def main():
                 time.sleep(PAUSA)
                 continue
             (args.destino / nome).write_bytes(conteudo.content)
-            creditos.append({"arquivo": nome, "classe": args.classe, "autor": texto_meta(meta, "Artist") or "desconhecido",
+            creditos.append({"arquivo": nome, "classe": args.classe, "autor": autor(meta, info),
                              "licenca": licenca, "url_observacao": info["descriptionurl"], "url_foto": url})
             salvar_creditos(args.creditos, creditos)          # grava a cada foto; se o script parar, nada se perde
             ja_baixadas.add(info["descriptionurl"])

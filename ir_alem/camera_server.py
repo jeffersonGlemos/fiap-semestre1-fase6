@@ -21,11 +21,13 @@ com o cabeçalho X-Keepalive. A conexão continua ativa, e o cliente não estour
 
 Modos:
     BASE  (--inferencia nenhuma): apenas transmite. O reconhecimento acontece no PC, com o best.pt.
-    PLUS  (--inferencia hailo):   o Pi 5 detecta na NPU Hailo-8L e envia o vídeo já anotado + JSON.
-          (--inferencia onnx):    plano B do PLUS, o mesmo modelo em ONNX Runtime na CPU do Pi.
+    PLUS  (--inferencia hailo):   previsto para o Pi 5 detectar na NPU Hailo-8L e enviar o vídeo já
+                                  anotado + JSON. Implementado, mas não testado no hardware.
+          (--inferencia onnx):    plano B do PLUS, o mesmo modelo em ONNX Runtime na CPU do Pi
+                                  (testado só no Mac, como PLUS simulado; não executado no Pi).
 
-A opção --classes coco permite validar o pipeline com um .hef pré-treinado no COCO enquanto o
-best.hef do projeto ainda não foi compilado.
+A opção --classes coco serve para validar o pipeline com um .hef pré-treinado no COCO enquanto o
+best.hef do projeto não for compilado.
 
 Fonte "navegador" (celular sem app): o celular abre https://<IP>:<porta>/celular no Safari ou no
 Chrome, e a página envia os quadros da câmera traseira por POST /quadro. Escolhi esse caminho porque
@@ -47,8 +49,8 @@ Uso:
     python camera_server.py --fonte picamera2 --inferencia onnx  --modelo best.onnx
     python camera_server.py --fonte 0 --inferencia onnx --modelo best.onnx --provedor coreml   # PLUS simulado no Mac
     python camera_server.py --fonte navegador --inferencia onnx --modelo best.onnx             # celular + PLUS
-    python camera_server.py --fonte teste.mp4 --loop --inferencia hailo \
-        --modelo /usr/share/hailo-models/yolov8s_h8l.hef --classes coco   # teste sem best.hef
+    python camera_server.py --fonte teste.mp4 --loop --inferencia hailo --modelo /usr/share/hailo-models/yolov8s_h8l.hef --classes coco
+                                                       # teste do pipeline sem best.hef (Hailo não testado)
 """
 
 import argparse
@@ -609,8 +611,10 @@ def main():
                         criar_handler(estado, info, camera if navegador else None, qr_svg), contexto)
     extra = f", {info['provedor']}" if info["provedor"] else ""
     inseguro = " --inseguro" if https else ""
+    # No BASE, a inferência roda no PC com o modelo oficial versionado; no PLUS, o cliente roda sem --modelo
+    modelo_pc = " --modelo modelos/best_portavel.pt" if args.inferencia == "nenhuma" else ""
     print(f"Transmitindo em {esquema}://{ip}:{args.porta}/stream  (inferência: {args.inferencia}{extra})")
-    print(f"No PC:  python cliente_vscode.py --fonte {esquema}://{ip}:{args.porta}/stream{inseguro}")
+    print(f"No PC:  python cliente_vscode.py --fonte {esquema}://{ip}:{args.porta}/stream{inseguro}{modelo_pc}")
     try:
         servidor.serve_forever()
     except KeyboardInterrupt:

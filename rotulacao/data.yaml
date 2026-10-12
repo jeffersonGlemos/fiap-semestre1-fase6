@@ -1,5 +1,7 @@
 # Configuração do dataset para o YOLOv5. A ordem das classes é a mesma do labels.txt usado no Roboflow.
-path: /content/drive/MyDrive/FarmTech_Fase6/dataset
+# O caminho é o do Colab, onde o notebook descompacta o zip público; o publicar_dataset.py e o
+# notebook gravam este mesmo conteúdo junto do dataset.
+path: /content/dataset
 train: train/images
 val:   val/images
 test:  test/images

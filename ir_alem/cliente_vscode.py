@@ -20,11 +20,11 @@ O que foi efetivamente usado é impresso no início e gravado na coluna `execuca
 
 Uso:
     python cliente_vscode.py --fonte http://192.168.0.42:8000/stream --modelo best.pt   # Pi, BASE
-    python cliente_vscode.py --fonte http://192.168.0.50/stream --modelo best.pt        # ESP32-CAM
+    python cliente_vscode.py --fonte http://192.168.0.50:81/stream --saude http://192.168.0.50 --modelo best.pt   # ESP32-CAM
     python cliente_vscode.py --fonte 0 --modelo best.pt                                 # webcam do PC
     python cliente_vscode.py --fonte http://192.168.0.42:8000/stream                    # Pi + Hailo, PLUS
     python cliente_vscode.py --fonte demo.mp4 --modelo best.onnx --sem-janela --max-frames 100
-    python cliente_vscode.py --fonte http://<celular>:8080/video --modelo best.pt --dispositivo mps
+    python cliente_vscode.py --fonte http://<câmera>:<porta>/<rota MJPEG> --modelo best.pt --dispositivo mps
     python cliente_vscode.py --fonte <url> --modelo yolov5s.onnx --classes coco --provedor coreml
     python cliente_vscode.py --fonte https://<IP do Mac>:8000/stream --inseguro --modelo best.pt   # celular via navegador
 
@@ -34,6 +34,10 @@ opção --inseguro desliga a verificação do certificado apenas nas conexões c
 /saude informa essa fonte e o modelo roda aqui (BASE), o cliente devolve ao servidor as detecções de
 cada quadro em coordenadas normalizadas (POST /deteccoes), e a página /celular desenha as caixas sobre
 a prévia do próprio celular.
+
+Na ESP32-CAM, o /stream fica em um servidor separado, na porta 81, e o /saude na porta 80 (ver
+esp32cam/esp32cam_stream.ino). Como o cliente procura o /saude no mesmo endereço do stream, a opção
+--saude informa a URL base do servidor quando ela é diferente da do stream.
 
 Se a câmera parar de enviar, o servidor mantém o /stream vivo com quadros de keepalive; a janela
 continua respondendo, mostra "aguardando quadros" e volta sozinha quando os quadros retornam.
@@ -355,6 +359,8 @@ def main():
     ap.add_argument("--max-frames", type=int, default=0, help="encerra após N quadros (0 = sem limite)")
     ap.add_argument("--inseguro", action="store_true",
                     help="aceita o certificado autoassinado de um servidor https (camera_server.py --fonte navegador)")
+    ap.add_argument("--saude", help="URL base do servidor para /saude e /deteccoes quando difere da do stream "
+                                    "(ESP32-CAM: stream em http://<IP>:81/stream, /saude em http://<IP>)")
     args = ap.parse_args()
 
     remoto = args.fonte.startswith("http")
@@ -362,7 +368,7 @@ def main():
     fonte = FonteMJPEG(args.fonte, contexto=contexto) if remoto else FonteLocal(args.fonte)
     modelo = (ModeloLocal(args.modelo, args.conf, args.classes, args.provedor, args.dispositivo)
               if args.modelo else None)
-    base = args.fonte.rsplit("/", 1)[0] if remoto else None
+    base = (args.saude or args.fonte.rsplit("/", 1)[0]).rstrip("/") if remoto else None   # /saude e /deteccoes
     monitor = MonitorRemoto(base, contexto=contexto) if remoto else None
     plus = monitor if monitor and monitor.infere and not modelo else None
     modo = "BASE" if modelo else ("PLUS" if plus else "SÓ VÍDEO")

@@ -1,7 +1,11 @@
-"""Backend Hailo-8L (modo PLUS): executa na NPU do Pi 5 o best.pt compilado em .hef.
+"""Backend Hailo-8L (modo PLUS): destinado a executar na NPU do Pi 5 o best.pt compilado em .hef.
+
+Situação: implementado a partir da documentação do HailoRT e do Hailo Model Zoo, mas NÃO testado. Até a
+entrega, este código não foi executado no Raspberry Pi 5 com o AI Kit e o best.hef não foi compilado;
+o comportamento descrito abaixo é o esperado, e não um resultado medido.
 
 Escolhi a NPU para que a inferência aconteça no próprio dispositivo, sem depender do PC nem de nuvem,
-com latência baixa e consumo compatível com um equipamento embarcado.
+com a expectativa de latência baixa e consumo compatível com um equipamento embarcado.
 
 Pré-requisitos no Pi (Raspberry Pi OS Bookworm 64-bit):
     sudo apt install hailo-all && sudo reboot

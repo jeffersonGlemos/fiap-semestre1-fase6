@@ -1,13 +1,17 @@
 """Pré-rotulação automática com Grounding DINO (detecção zero-shot guiada por texto).
 
 Gera um .txt no formato YOLO para cada imagem e uma prévia com as caixas desenhadas. As prévias
-servem para a inspeção visual por amostragem; o roboflow_sync.py permite uma revisão completa no
-Roboflow Annotate antes do treino.
+servem para a inspeção visual por amostragem. A revisão completa no Roboflow Annotate, preparada
+pelo roboflow_sync.py, é uma etapa prevista que não foi realizada nesta versão do dataset.
 
-Uso:
-    uv run autolabel.py brutas/pasto  saida/  --classes vaca,arvore,cerca
-    uv run autolabel.py brutas/cobras saida/  --classes cobra
-    uv run autolabel.py brutas/caneca saida_caneca/ --classes caneca
+Imagens sem nenhuma detecção recebem um .txt vazio; elas ficam de fora do dataset na etapa de
+junção que antecede o split.py.
+
+Uso (os lotes que formam o dataset atual, cada um com as classes que de fato aparecem nele):
+    uv run autolabel.py brutas/pasto     saida_pasto/  --classes vaca,arvore,cerca
+    uv run autolabel.py brutas/cobra     saida/        --classes cobra
+    uv run autolabel.py brutas/escorpiao saida/        --classes escorpiao
+    uv run autolabel.py brutas/caneca    saida_caneca/ --classes caneca
 """
 
 import argparse
@@ -86,7 +90,8 @@ def main():
     ap.add_argument("saida", type=Path, help="gera saida/images, saida/labels e saida/previa")
     ap.add_argument("--classes", default=",".join(CLASSES),
                     help="classes procuradas neste lote (ex.: cobra); restringir a lista reduz falsos positivos")
-    ap.add_argument("--modelo", default="IDEA-Research/grounding-dino-base")
+    ap.add_argument("--modelo", default="IDEA-Research/grounding-dino-base",
+                    help="checkpoint do Grounding DINO no Hugging Face (padrão: IDEA-Research/grounding-dino-base)")
     args = ap.parse_args()
 
     classes = [c.strip() for c in args.classes.split(",")]
