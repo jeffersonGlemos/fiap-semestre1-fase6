@@ -60,6 +60,26 @@ def carregar_backend(nome, modelo, conf=0.25, classes=CLASSES, provedor="auto"):
     raise ValueError(f"backend desconhecido: {nome}")
 
 
+def cores_css():
+    """CORES em hexadecimal RGB (#rrggbb), para a página /celular desenhar com as mesmas cores do OpenCV."""
+    return {classe: f"#{r:02x}{g:02x}{b:02x}" for classe, (b, g, r) in CORES.items()}
+
+
+def normalizar(deteccoes, largura, altura):
+    """Converte as caixas de pixels para frações (0 a 1) da largura e da altura do quadro.
+
+    Assim, quem desenha as caixas (a página /celular) não precisa saber a resolução em que o quadro
+    foi analisado: basta multiplicar pela área em que o vídeo aparece na sua própria tela.
+    """
+    saida = []
+    for d in deteccoes:
+        x1, y1, x2, y2 = (float(v) for v in d["bbox"])
+        caixa = (x1 / largura, y1 / altura, x2 / largura, y2 / altura)
+        saida.append({"classe": d["classe"], "conf": round(float(d["conf"]), 3),
+                      "bbox": [round(min(max(v, 0.0), 1.0), 4) for v in caixa]})   # o NMS pode passar da borda
+    return saida
+
+
 def anotar(frame, deteccoes):
     """Desenha as caixas e os rótulos diretamente no frame e devolve o próprio frame."""
     for d in deteccoes:

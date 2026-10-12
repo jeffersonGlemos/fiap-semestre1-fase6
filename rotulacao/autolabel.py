@@ -1,7 +1,8 @@
 """Pré-rotulação automática com Grounding DINO (detecção zero-shot guiada por texto).
 
-Gera um .txt no formato YOLO para cada imagem e uma prévia com as caixas desenhadas. Essas caixas
-são apenas um ponto de partida: todas passam por revisão manual no Roboflow Annotate antes do treino.
+Gera um .txt no formato YOLO para cada imagem e uma prévia com as caixas desenhadas. As prévias
+servem para a inspeção visual por amostragem; o roboflow_sync.py permite uma revisão completa no
+Roboflow Annotate antes do treino.
 
 Uso:
     uv run autolabel.py brutas/pasto  saida/  --classes vaca,arvore,cerca

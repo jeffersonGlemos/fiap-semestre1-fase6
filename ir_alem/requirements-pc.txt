@@ -14,6 +14,10 @@ seaborn>=0.13
 ultralytics>=8.0            # o hub do YOLOv5 importa utilitários deste pacote
 matplotlib>=3.7             # gráficos do notebook do Ir Além
 
+# camera_server.py --fonte navegador (celular como câmera pelo Safari/Chrome, servido pelo Mac)
+cryptography>=42            # gera o certificado autoassinado do --https (sem ele, o servidor recorre ao openssl)
+segno>=1.5                  # QR code da URL /celular no terminal e em /qr.svg (opcional; Python puro)
+
 # ONNX Runtime (cliente com best.onnx e --provedor). Instale APENAS UM dos três pacotes, porque eles
 # ocupam o mesmo módulo `onnxruntime` e se sobrescrevem:
 #   onnxruntime            CPU em macOS, Linux e Windows; no Mac já inclui o CoreML EP (--provedor coreml)

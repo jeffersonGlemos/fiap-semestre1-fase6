@@ -5,6 +5,7 @@ roboflow.env
 brutas/
 saida*/
 revisado/
+rotulado/
 dataset/
 *.zip
 *.pt

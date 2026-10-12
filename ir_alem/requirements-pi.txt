@@ -8,3 +8,6 @@
 # O hailo-all instala o HailoRT, o firmware e o módulo hailo_platform (modo PLUS).
 numpy>=1.24
 onnxruntime>=1.17           # plano B do PLUS: best.onnx na CPU do Pi
+# --fonte navegador (celular como câmera): o certificado do --https é gerado com o python3-cryptography
+# do sistema ou, na falta dele, com o openssl, que já vem no Raspberry Pi OS.
+segno>=1.5                  # QR code da URL /celular (opcional; Python puro)

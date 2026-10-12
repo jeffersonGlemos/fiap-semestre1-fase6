@@ -28,7 +28,7 @@ não precisem ser renumerados.
 
 | Peça | Link |
 |---|---|
-| Notebook principal (Entregas 1 e 2) | [`JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb`](JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/USUARIO/REPOSITORIO/blob/main/JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb) <!-- TODO: trocar USUARIO/REPOSITORIO --> |
+| Notebook principal (Entregas 1 e 2) | [`JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb`](JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jeffersonGlemos/fiap-semestre1-fase6/blob/main/JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb) |
 | Notebook Ir Além | [`ir_alem/JeffersonGoncalvesLemos_rm572399_pbl_fase6_ir_alem.ipynb`](ir_alem/JeffersonGoncalvesLemos_rm572399_pbl_fase6_ir_alem.ipynb) |
 | Vídeo: Entregas 1 e 2 (até 5 min) | <!-- TODO: link YouTube não listado --> _em breve_ |
 | Vídeo: Ir Além (até 5 min) | <!-- TODO: link YouTube não listado --> _em breve_ |
@@ -52,12 +52,12 @@ com acelerador Hailo-8L, que envia o vídeo anotado e as detecções ao mesmo cl
 ├── JeffersonGoncalvesLemos_rm572399_pbl_fase6.ipynb   notebook principal (Entregas 1 e 2)
 ├── README.md
 ├── assets/                    prints das imagens de teste e gráficos gerados pelo notebook
-├── rotulacao/                 dataset: coleta, download, pré-rotulação, revisão, split e contagem
+├── rotulacao/                 dataset: coleta, download, rotulação automática, split e contagem
 │   ├── coleta.py              captura com câmera própria (Pi ou webcam) para ampliar o dataset;
 │   │                          não foi a origem do lote A atual
 │   ├── baixar_bancos.py       cobras e escorpiões do iNaturalist (licenças CC) + creditos.csv
 │   ├── baixar_commons.py      fotos de pasto e de canecas do Wikimedia Commons + creditos.csv
-│   ├── autolabel.py           pré-rotulação zero-shot com Grounding DINO
+│   ├── autolabel.py           rotulação automática zero-shot com Grounding DINO
 │   ├── roboflow_sync.py       envio para a revisão no Roboflow Annotate e download da versão revisada
 │   ├── roboflow.env.exemplo   modelo da configuração do Roboflow (chave, workspace e projeto)
 │   ├── split.py               treino/val/teste por grupos de imagens, sem arquivo repetido entre conjuntos
@@ -76,23 +76,30 @@ com acelerador Hailo-8L, que envia o vídeo anotado e as detecções ao mesmo cl
 ## Rotulação
 
 ```
-autolabel.py → roboflow_sync.py → revisão no Roboflow Annotate → split.py → contagem.py
+autolabel.py → inspeção por amostragem → split.py → contagem.py
+roboflow_sync.py → revisão no Roboflow Annotate   (imagens enviadas; revisão ainda não feita)
 ```
 
 O enunciado sugere o Make Sense IA. Optei por outro fluxo porque, com seis classes e no mínimo 40
 imagens por classe, desenhar todas as caixas do zero seria lento e tenderia a gerar caixas
-inconsistentes entre sessões de trabalho. O Grounding DINO faz uma pré-rotulação zero-shot a partir
-de um prompt de texto por classe, e essas caixas servem apenas de ponto de partida: revisei
-manualmente todas elas no Roboflow Annotate, ajustando limites, apagando falsos positivos e
-desenhando os objetos que o modelo deixou passar. A exportação sai no mesmo formato YOLO que o
-Make Sense geraria, então o restante do pipeline não muda.
+inconsistentes entre sessões de trabalho. As caixas foram geradas automaticamente pelo Grounding
+DINO, em modo zero-shot, com um prompt de texto por classe, limiar de confiança por classe, NMS por
+classe e entre classes e descarte das caixas que cobrem a imagem inteira. Inspecionei o resultado
+por amostragem, em mosaicos com as prévias de cada lote, e descartei à mão as imagens claramente
+inadequadas (no lote de canecas, um balão em forma de caneca, canecas minúsculas e uma prateleira de
+loja); imagens sem nenhuma caixa ficaram de fora. As caixas não foram revisadas uma a uma: as
+imagens já estão no Roboflow (projeto Fase6) e o `roboflow_sync.py` deixa pronto o fluxo de revisão
+no Roboflow Annotate, mas a revisão completa não foi feita por limitação de tempo. O efeito disso
+nas métricas está nas limitações do notebook. A exportação sai no mesmo formato YOLO que o Make
+Sense geraria, então o restante do pipeline não muda.
 
 O `split.py` separa treino, validação e teste por grupos de imagens: uma expressão regular aplicada
 ao nome do arquivo (`--grupo`) define o grupo, e o grupo inteiro vai para o mesmo conjunto. Isso serve
 para manter juntas as fotos em sequência capturadas pelo `coleta.py`, cujo nome traz data e hora. As
 fotos atuais, do Wikimedia Commons e do iNaturalist, não têm data e hora no nome, então cada uma forma
 um grupo próprio. O `contagem.py` confere o mínimo de 32/4/4 imagens por classe antes de qualquer
-treino.
+treino. O dataset final tem 376 imagens (336 de treino, 21 de validação e 19 de teste), todas as
+seis classes acima desse mínimo e nenhum arquivo repetido entre conjuntos.
 A discussão completa dessa etapa está no notebook.
 
 ## Como reproduzir
@@ -100,7 +107,7 @@ A discussão completa dessa etapa está no notebook.
 1. Abra o notebook principal no Colab pelo badge acima e ative a GPU
    (*Ambiente de execução → Alterar o tipo de ambiente → T4 GPU*).
 2. Execute todas as células. O dataset é baixado automaticamente de um link público, sem depender
-   de acesso ao Drive do autor. <!-- TODO: link público do dataset -->
+   de acesso ao Drive do autor ([link público do dataset](https://drive.google.com/file/d/1CTyM69BKyGfSkuZKACGx7a7aXIpyRlEF/view)).
 3. O Google Drive é montado apenas para guardar os resultados (`runs/` e pesos) entre sessões; essa
    etapa é opcional.
 
@@ -109,7 +116,7 @@ descrito acima (ambiente gerenciado com `uv`). O envio ao Roboflow exige copiar
 `rotulacao/roboflow.env.exemplo` para `rotulacao/roboflow.env` e preencher a chave da API, já que
 o `roboflow.env` fica fora do controle de versão.
 
-## Créditos das imagens
+## Créditos das imagens e licença
 
 As fotos de pasto (`vaca`, `arvore`, `cerca`) formam o lote A do dataset e vêm do Wikimedia Commons,
 das categorias *Cattle in Brazil*, *Pastures in Brazil*, *Wooden fences in Brazil*, *Fence posts* e
@@ -130,4 +137,8 @@ Fotos próprias de canecas, feitas com o celular no ambiente da demonstração, 
 esse lote.
 Autor, licença e links de todas as imagens dos quatro lotes estão em
 [`rotulacao/creditos.csv`](rotulacao/creditos.csv).
-Dos bancos públicos baixei somente as imagens; todas as anotações foram feitas neste projeto.
+Dos bancos públicos baixei somente as imagens; todas as anotações foram geradas neste projeto.
+
+O conjunto distribuído (imagens e rótulos, no zip público baixado pelo notebook) está sob a licença
+**CC BY-SA 4.0**, porque parte das fotos tem licença CC BY-SA, que exige a mesma licença nas obras
+derivadas. A atribuição de cada imagem continua em `rotulacao/creditos.csv`.

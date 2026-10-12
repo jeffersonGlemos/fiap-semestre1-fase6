@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1210">
+<title>Câmera do rover</title>
+<!--
+  Página servida pelo camera_server.py em /celular (--fonte navegador). Transforma o navegador do
+  celular na câmera do rover: captura a câmera com getUserMedia, desenha cada quadro num canvas,
+  comprime em JPEG e envia por POST /quadro. Não usa bibliotecas externas, para funcionar numa rede
+  sem internet. O envio é sequencial: o próximo quadro só sai depois da resposta do anterior, o que
+  impede a formação de fila quando o Wi-Fi fica lento.
+
+  As caixas detectadas voltam na própria resposta do POST /quadro, em coordenadas normalizadas (0 a 1)
+  do quadro enviado. A prévia continua sendo o <video> local, ao vivo, e um <canvas> transparente por
+  cima desenha apenas as caixas. Assim, o celular não recebe vídeo anotado de volta: trafegam poucos
+  bytes de JSON, a prévia mantém a fluidez nativa da câmera e as mesmas coordenadas servem para
+  qualquer tamanho ou orientação de tela.
+-->
+<style>
+  :root {
+    --fundo: #0d1210; --painel: #161d1a; --borda: #26302c; --texto: #e6ece9; --suave: #93a39b;
+    --verde: #4cc38a; --ambar: #f0b34a; --vermelho: #ef5a5a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fundo); color: var(--texto);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: max(12px, env(safe-area-inset-top)) 16px
+    max(16px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: .2px; }
+  header p { margin: 2px 0 0; color: var(--suave); font-size: 13px; }
+  /* A proporção acompanha a do vídeo (ajustada pelo script); a altura máxima evita que a prévia
+     empurre os controles para fora da tela no celular em pé */
+  .previa { position: relative; width: 100%; background: #000; border: 1px solid var(--borda);
+    border-radius: 12px; overflow: hidden; aspect-ratio: 3 / 4; max-height: 62vh; max-height: 62dvh; }
+  .previa.alerta { border-color: var(--vermelho); animation: pulso 0.8s ease-in-out infinite alternate; }
+  @keyframes pulso { from { box-shadow: 0 0 0 0 rgba(239, 90, 90, .9); } to { box-shadow: 0 0 0 6px rgba(239, 90, 90, .2); } }
+  /* O vídeo e o canvas ocupam exatamente a mesma caixa; o vídeo usa object-fit: contain (quadro
+     inteiro visível, com faixas se as proporções diferirem), e o script considera essas faixas */
+  .previa video, .previa canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .previa video { object-fit: contain; }
+  .previa canvas { pointer-events: none; }
+  .previa .vazio { position: absolute; inset: 0; display: grid; place-items: center; color: var(--suave);
+    font-size: 13px; text-align: center; padding: 16px; }
+  .selo { position: absolute; top: 8px; left: 8px; padding: 3px 8px; border-radius: 99px; font-size: 12px;
+    font-weight: 600; background: rgba(0,0,0,.6); color: var(--suave); }
+  .selo.ok { color: var(--verde); } .selo.erro { color: var(--vermelho); }
+  .faixa { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 12px; font-weight: 700;
+    font-size: 15px; background: rgba(200, 30, 30, .88); color: #fff; display: none; }
+  .faixa.visivel { display: block; }
+  .metricas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .metrica { background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; padding: 8px 8px; }
+  .metrica b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
+  .metrica span { color: var(--suave); font-size: 11px; }
+  .controles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  label { display: flex; flex-direction: column; gap: 4px; color: var(--suave); font-size: 12px; min-width: 0; }
+  select { appearance: none; -webkit-appearance: none; width: 100%; font: inherit; color: var(--texto);
+    background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 8px; }
+  @media (max-width: 380px) {
+    .metricas, .controles { grid-template-columns: repeat(2, 1fr); }
+  }
+  button { font: inherit; font-weight: 600; font-size: 17px; border: 0; border-radius: 12px; padding: 14px;
+    background: var(--verde); color: #06130d; }
+  button.parar { background: var(--vermelho); color: #fff; }
+  button:disabled { opacity: .5; }
+  .aviso { display: none; border-radius: 10px; padding: 10px 12px; font-size: 14px;
+    background: #2a1a1a; border: 1px solid #5a2a2a; color: #ffd6d6; }
+  .aviso.ambar { background: #2a2414; border-color: #5a4a1f; color: #ffe6b3; }
+  .aviso.visivel { display: block; }
+  .rodape { color: var(--suave); font-size: 12px; margin: 0; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>FarmTech · câmera do rover</h1>
+    <p>O celular faz o papel da câmera: os quadros seguem por Wi-Fi para o camera_server.py, e as caixas detectadas voltam para esta prévia.</p>
+  </header>
+
+  <div class="previa" id="previa">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="sobreposicao"></canvas>
+    <div class="vazio" id="vazio">Câmera desligada</div>
+    <div class="selo" id="selo">parado</div>
+    <div class="faixa" id="faixa" role="alert"></div>
+  </div>
+
+  <div class="aviso" id="aviso" role="alert"></div>
+
+  <div class="metricas">
+    <div class="metrica"><b id="mFps">–</b><span>FPS enviado</span></div>
+    <div class="metrica"><b id="mDet">–</b><span>FPS detecções</span></div>
+    <div class="metrica"><b id="mRtt">–</b><span>ida e volta (ms)</span></div>
+    <div class="metrica"><b id="mAtraso">–</b><span>atraso caixas (ms)</span></div>
+  </div>
+
+  <div class="controles">
+    <label>Câmera
+      <select id="cCamera">
+        <option value="environment" selected>Traseira</option>
+        <option value="user">Frontal</option>
+      </select>
+    </label>
+    <label>Resolução
+      <select id="cResolucao">
+        <option value="320x240">320×240</option>
+        <option value="640x480" selected>640×480</option>
+        <option value="960x720">960×720</option>
+        <option value="1280x720">1280×720</option>
+      </select>
+    </label>
+    <label>Quadros/s
+      <select id="cFps">
+        <option>5</option><option>10</option><option selected>15</option><option>20</option>
+        <option>25</option><option>30</option>
+      </select>
+    </label>
+    <label>JPEG
+      <select id="cQualidade">
+        <option value="0.5">0,5</option><option value="0.6">0,6</option><option value="0.7" selected>0,7</option>
+        <option value="0.8">0,8</option><option value="0.9">0,9</option>
+      </select>
+    </label>
+  </div>
+
+  <button id="botao">Iniciar câmera</button>
+
+  <p class="rodape" id="rodape">Quadros enviados: 0</p>
+</main>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const video = $("video"), previa = $("previa");
+const captura = document.createElement("canvas"), cctx = captura.getContext("2d");   // quadro que vai ao servidor
+const sobre = $("sobreposicao"), sctx = sobre.getContext("2d");                      // caixas sobre a prévia
+const botao = $("botao"), aviso = $("aviso"), selo = $("selo"), faixa = $("faixa");
+
+const VALIDADE_MS = 500;     // caixas cujo quadro de origem é mais velho que isso deixam de ser desenhadas
+const SUAVIZACAO_MS = 60;    // constante de tempo da interpolação entre duas atualizações das caixas
+
+let fluxo = null;            // MediaStream da câmera
+let rodando = false;
+let offsetMs = null;         // relógio do servidor - relógio do celular (ms)
+let incertezaMs = null;      // metade do RTT da melhor amostra de sincronização
+let ultimaSinc = 0;
+let enviados = 0, janela = 0, janelaDet = 0, inicioJanela = performance.now();
+let travaTela = null;
+
+// Cores e classes críticas vêm do /saude (backends/__init__.py), para coincidir com a janela do PC
+let cores = {};
+let criticas = new Set(["cobra", "escorpiao"]);
+
+// Estado das caixas: o último conjunto recebido e o que está sendo desenhado (interpolado)
+let ultimoQuadroDet = 0;     // número do quadro a que se referem as detecções atuais
+let referenciaDet = 0;       // instante da captura desse quadro, no relógio do celular (ms)
+let proporcaoDet = null;     // largura/altura do quadro analisado
+let caixas = [];             // {classe, conf, alvo: [x1,y1,x2,y2], atual: [x1,y1,x2,y2]} em 0-1
+let atrasoMedio = null;
+let ultimoDesenho = performance.now();
+let alertaAtual = "";
+
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function mostrarAviso(texto, tipo) {
+  aviso.textContent = texto;
+  aviso.className = "aviso visivel" + (tipo === "ambar" ? " ambar" : "");
+}
+function limparAviso() { aviso.className = "aviso"; }
+function definirSelo(texto, classe) { selo.textContent = texto; selo.className = "selo " + (classe || ""); }
+
+// getUserMedia só existe em contexto seguro (HTTPS ou localhost)
+function contextoSeguro() {
+  if (window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) return true;
+  mostrarAviso("A câmera só é liberada em HTTPS. Abra o endereço https://… mostrado no terminal do " +
+    "camera_server.py (ou leia o QR code) e aceite o aviso de certificado. Endereço atual: " + location.href);
+  botao.disabled = true;
+  return false;
+}
+
+// Estimativa do offset de relógio pelo método de Cristian: em cada GET /saude, o horário do servidor
+// corresponde, aproximadamente, ao ponto médio entre o envio e a resposta. Fico com a amostra de
+// menor RTT, que é a de menor incerteza (±RTT/2).
+async function sincronizarRelogio(amostras = 5) {
+  let melhor = null;
+  for (let i = 0; i < amostras; i++) {
+    const t0 = Date.now();
+    const resp = await fetch("/saude?t=" + t0, { cache: "no-store" });
+    const dados = await resp.json();
+    const t1 = Date.now();
+    const rtt = t1 - t0;
+    if (!melhor || rtt < melhor.rtt) melhor = { rtt, offset: dados.timestamp * 1000 - (t0 + t1) / 2 };
+    if (dados.cores) cores = dados.cores;
+    if (dados.criticas) criticas = new Set(dados.criticas);
+  }
+  offsetMs = melhor.offset;
+  incertezaMs = melhor.rtt / 2;
+  ultimaSinc = performance.now();
+}
+
+async function abrirCamera() {
+  const [largura, altura] = $("cResolucao").value.split("x").map(Number);
+  fecharCamera();
+  fluxo = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: {
+      facingMode: { ideal: $("cCamera").value },
+      width: { ideal: largura }, height: { ideal: altura },
+      frameRate: { ideal: 30 },               // a prévia local fica sempre fluida; o envio tem o seu próprio ritmo
+    },
+  });
+  video.srcObject = fluxo;
+  await video.play();
+  $("vazio").style.display = "none";
+  ajustarProporcao();
+}
+
+function fecharCamera() {
+  if (fluxo) fluxo.getTracks().forEach((t) => t.stop());
+  fluxo = null;
+  video.srcObject = null;
+}
+
+function cameraAtiva() {
+  return fluxo && fluxo.getVideoTracks().some((t) => t.readyState === "live");
+}
+
+function explicarErroCamera(erro) {
+  const nome = erro && erro.name;
+  if (nome === "NotAllowedError" || nome === "SecurityError") {
+    mostrarAviso("Permissão da câmera negada. No iPhone: Ajustes > Apps > Safari > Câmera > Permitir " +
+      "(ou toque em \"aA\" na barra de endereço > Ajustes do Site). Depois, recarregue a página.");
+  } else if (nome === "NotFoundError" || nome === "OverconstrainedError") {
+    mostrarAviso("Nenhuma câmera atende a essa escolha. Tente a outra câmera ou uma resolução menor.");
+  } else if (nome === "NotReadableError") {
+    mostrarAviso("A câmera está em uso por outro app. Feche o outro app e tente de novo.");
+  } else {
+    mostrarAviso("Não foi possível abrir a câmera: " + (erro && erro.message ? erro.message : erro));
+  }
+}
+
+// ---------------------------------------------------------------- envio dos quadros
+
+// Desenha o quadro atual no canvas de captura, limitando o lado maior à resolução escolhida. A escala
+// é uniforme, então o quadro enviado tem a mesma proporção do vídeo exibido, e as coordenadas
+// normalizadas que voltam do servidor valem também para a prévia.
+function capturarQuadro() {
+  const [largura, altura] = $("cResolucao").value.split("x").map(Number);
+  const limite = Math.max(largura, altura);
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return null;
+  const escala = Math.min(1, limite / Math.max(vw, vh));
+  const w = Math.round(vw * escala), h = Math.round(vh * escala);
+  if (captura.width !== w || captura.height !== h) { captura.width = w; captura.height = h; }  // realocar só quando muda
+  cctx.drawImage(video, 0, 0, w, h);
+  return Date.now();                                   // instante da captura, no relógio do celular
+}
+
+async function enviar(blob, tCaptura) {
+  const cabecalhos = { "Content-Type": "image/jpeg", "X-Timestamp": String(tCaptura) };
+  if (offsetMs !== null) {
+    cabecalhos["X-Relogio-Offset"] = offsetMs.toFixed(1);
+    cabecalhos["X-Relogio-Incerteza"] = incertezaMs.toFixed(1);
+  }
+  const t0 = performance.now();
+  const resp = await fetch("/quadro", { method: "POST", body: blob, headers: cabecalhos, cache: "no-store" });
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  const dados = await resp.json();
+  return { rtt: performance.now() - t0, dados };
+}
+
+async function laco() {
+  let falhas = 0;
+  while (rodando) {
+    if (document.hidden) {                             // aba em segundo plano: o iOS pausa a câmera
+      definirSelo("pausado");
+      await espera(250);
+      continue;
+    }
+    const inicio = performance.now();
+    const intervalo = 1000 / Number($("cFps").value);
+    try {
+      if (performance.now() - ultimaSinc > 30000) await sincronizarRelogio(3);   // ressincroniza a cada 30 s
+      const tCaptura = capturarQuadro();
+      if (tCaptura !== null) {
+        const blob = await new Promise((r) => captura.toBlob(r, "image/jpeg", Number($("cQualidade").value)));
+        const { rtt, dados } = await enviar(blob, tCaptura);
+        receberDeteccoes(dados.deteccoes);
+        $("mRtt").textContent = Math.round(rtt);
+        enviados++; janela++;
+        if (falhas) { limparAviso(); falhas = 0; }
+        definirSelo("enviando", "ok");
+      }
+    } catch (erro) {
+      falhas++;
+      definirSelo("sem servidor", "erro");
+      mostrarAviso("O servidor não respondeu (" + (erro.message || erro) + "). Confira se o " +
+        "camera_server.py está rodando e se o celular está na mesma rede Wi-Fi. Tentando de novo…", "ambar");
+      await espera(Math.min(1000 * falhas, 5000));
+      continue;
+    }
+    atualizarMetricas();
+    const resto = intervalo - (performance.now() - inicio);
+    if (resto > 0) await espera(resto);
+  }
+}
+
+// FPS enviado e FPS de detecções novas recebidas, em janelas de 1 s
+function atualizarMetricas() {
+  const agora = performance.now();
+  if (agora - inicioJanela < 1000) return;
+  const dt = (agora - inicioJanela) / 1000;
+  $("mFps").textContent = (janela / dt).toFixed(1);
+  $("mDet").textContent = (janelaDet / dt).toFixed(1);
+  $("mAtraso").textContent = atrasoMedio === null ? "–" : Math.round(atrasoMedio);
+  const relogio = offsetMs === null ? "relógio sem correção"
+    : "relógio " + (offsetMs >= 0 ? "+" : "") + Math.round(offsetMs) + " ms (±" + Math.round(incertezaMs) + ")";
+  const semDet = janelaDet === 0 ? " · sem detecções novas (cliente_vscode.py com --modelo, ou servidor com --inferencia)" : "";
+  $("rodape").textContent = "Quadros enviados: " + enviados + " · " + captura.width + "×" + captura.height +
+    " · " + relogio + semDet;
+  janela = 0; janelaDet = 0; inicioJanela = agora;
+}
+
+// ---------------------------------------------------------------- caixas sobre a prévia
+
+function iou(a, b) {
+  const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]));
+  const iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+  const inter = ix * iy;
+  const uniao = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter;
+  return uniao > 0 ? inter / uniao : 0;
+}
+
+// Recebe o JSON de detecções que veio de carona na resposta do POST /quadro. Cada caixa nova é
+// associada à caixa exibida da mesma classe com maior sobreposição; a associada desliza até a nova
+// posição (interpolação), e as demais aparecem ou somem de imediato.
+function receberDeteccoes(det) {
+  if (!det || !det.quadro || det.quadro === ultimoQuadroDet) return;
+  ultimoQuadroDet = det.quadro;
+  janelaDet++;
+  // ts_celular é o X-Timestamp que esta página enviou com o quadro analisado: a idade das caixas sai
+  // do mesmo relógio, sem depender do offset. Na falta dele, conta a partir da chegada
+  referenciaDet = det.ts_celular || Date.now();
+  proporcaoDet = det.largura && det.altura ? det.largura / det.altura : null;
+  const atraso = Date.now() - referenciaDet;
+  atrasoMedio = atrasoMedio === null ? atraso : 0.8 * atrasoMedio + 0.2 * atraso;
+
+  const novas = (det.deteccoes || []).filter((d) => Array.isArray(d.bbox) && d.bbox.length === 4);
+  const livres = caixas.slice();
+  caixas = novas.map((d) => {
+    let melhor = -1, maior = 0.1;
+    livres.forEach((c, i) => {
+      if (c && c.classe === d.classe) {
+        const v = iou(c.atual, d.bbox);
+        if (v > maior) { maior = v; melhor = i; }
+      }
+    });
+    const anterior = melhor >= 0 ? livres[melhor] : null;
+    if (anterior) livres[melhor] = null;
+    return { classe: d.classe, conf: d.conf, alvo: d.bbox.slice(), atual: anterior ? anterior.atual : d.bbox.slice() };
+  });
+}
+
+// Área em que o vídeo realmente aparece dentro do elemento, em pixels CSS. Com object-fit: contain,
+// a imagem é reduzida até caber inteira e centralizada; sobram faixas nas laterais ou em cima e embaixo.
+function areaExibida() {
+  const cw = sobre.clientWidth, ch = sobre.clientHeight;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh || !cw || !ch) return null;
+  const escala = Math.min(cw / vw, ch / vh);
+  const w = vw * escala, h = vh * escala;
+  return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+}
+
+// O canvas tem resolução física (CSS × devicePixelRatio) para as linhas ficarem nítidas na tela Retina;
+// a transformação permite desenhar em pixels CSS
+function ajustarCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(sobre.clientWidth * dpr), h = Math.round(sobre.clientHeight * dpr);
+  if (sobre.width !== w || sobre.height !== h) { sobre.width = w; sobre.height = h; }
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+// A prévia assume a proporção do vídeo (muda ao girar o celular), o que reduz as faixas do contain
+function ajustarProporcao() {
+  if (video.videoWidth && video.videoHeight) previa.style.aspectRatio = video.videoWidth + " / " + video.videoHeight;
+  ajustarCanvas();
+}
+
+function desenharCaixa(c, area, critica) {
+  const [x1, y1, x2, y2] = c.atual;
+  const x = area.x + x1 * area.w, y = area.y + y1 * area.h;
+  const w = (x2 - x1) * area.w, h = (y2 - y1) * area.h;
+  const cor = cores[c.classe] || "#ffffff";           // mesma regra do OpenCV: classe sem cor fica branca
+  if (critica) {                                       // contorno branco por fora para destacar o alerta
+    sctx.lineWidth = 7; sctx.strokeStyle = "rgba(255,255,255,.85)"; sctx.strokeRect(x, y, w, h);
+  }
+  sctx.lineWidth = critica ? 4 : 2;
+  sctx.strokeStyle = cor;
+  sctx.strokeRect(x, y, w, h);
+  const texto = c.classe + " " + Number(c.conf).toFixed(2);
+  sctx.font = "600 13px -apple-system, BlinkMacSystemFont, sans-serif";
+  const tw = sctx.measureText(texto).width + 8, th = 18;
+  const ty = y - th >= area.y ? y - th : y;            // rótulo acima da caixa; se não couber, por dentro
+  const tx = Math.min(x, area.x + area.w - tw);
+  sctx.fillStyle = cor;
+  sctx.fillRect(tx, ty, tw, th);
+  sctx.fillStyle = critica ? "#ffffff" : "#000000";
+  sctx.fillText(texto, tx + 4, ty + 13);
+}
+
+function definirAlerta(lista) {
+  const texto = lista.length ? "ALERTA: " + lista.map((c) => c.classe + " " + Number(c.conf).toFixed(2)).join(", ") : "";
+  if (texto === alertaAtual) return;
+  if (texto && !alertaAtual && navigator.vibrate) navigator.vibrate(200);   // Android; o Safari do iOS ignora
+  alertaAtual = texto;
+  faixa.textContent = texto;
+  faixa.classList.toggle("visivel", !!texto);
+  previa.classList.toggle("alerta", !!texto);
+}
+
+// Laço de desenho, no ritmo da tela (requestAnimationFrame), independente do envio dos quadros
+function desenhar(agora) {
+  requestAnimationFrame(desenhar);
+  const dt = Math.min(agora - ultimoDesenho, 200);
+  ultimoDesenho = agora;
+  ajustarCanvas();
+  sctx.clearRect(0, 0, sobre.clientWidth, sobre.clientHeight);
+  const area = areaExibida();
+  const vencidas = Date.now() - referenciaDet > VALIDADE_MS;
+  // Caixas de um quadro com outra proporção (o celular acabou de girar) não valem para a prévia atual
+  const girou = proporcaoDet && area && Math.abs(proporcaoDet - area.w / area.h) > 0.02;
+  if (!rodando || !area || vencidas || girou) {
+    if (vencidas) caixas = [];                         // para não "grudarem" quando as detecções param de chegar
+    definirAlerta([]);
+    return;
+  }
+  const k = 1 - Math.exp(-dt / SUAVIZACAO_MS);         // fração do caminho até a posição nova, neste quadro de tela
+  const alertas = [];
+  for (const c of caixas) {
+    for (let i = 0; i < 4; i++) c.atual[i] += (c.alvo[i] - c.atual[i]) * k;
+    const critica = criticas.has(c.classe);
+    if (critica) alertas.push(c);
+    desenharCaixa(c, area, critica);
+  }
+  definirAlerta(alertas);
+}
+
+// ---------------------------------------------------------------- ciclo de vida
+
+// Mantém a tela ligada durante a captura (Screen Wake Lock: Safari 16.4+ e Chrome). O sistema libera
+// a trava quando a aba sai da tela, então ela é pedida de novo ao voltar.
+async function manterTelaLigada() {
+  if (!("wakeLock" in navigator) || travaTela || document.visibilityState !== "visible") return;
+  try {
+    travaTela = await navigator.wakeLock.request("screen");
+    travaTela.addEventListener("release", () => { travaTela = null; });
+  } catch (_) { travaTela = null; }
+}
+
+async function iniciar() {
+  if (!contextoSeguro()) return;
+  botao.disabled = true;
+  limparAviso();
+  try {
+    await abrirCamera();                               // precisa partir do toque no botão (exigência do iOS)
+  } catch (erro) {
+    explicarErroCamera(erro);
+    botao.disabled = false;
+    return;
+  }
+  try {
+    await sincronizarRelogio();
+  } catch (erro) {
+    mostrarAviso("Sem resposta do servidor para sincronizar o relógio; a latência fim a fim " +
+      "usará o relógio do celular sem correção.", "ambar");
+  }
+  rodando = true;
+  botao.textContent = "Parar";
+  botao.className = "parar";
+  botao.disabled = false;
+  manterTelaLigada();
+  laco();
+}
+
+function parar() {
+  rodando = false;
+  fecharCamera();
+  if (travaTela) { travaTela.release().catch(() => {}); travaTela = null; }
+  caixas = [];
+  $("vazio").style.display = "";
+  botao.textContent = "Iniciar câmera";
+  botao.className = "";
+  definirSelo("parado");
+}
+
+botao.addEventListener("click", () => (rodando ? parar() : iniciar()));
+
+// Trocar câmera ou resolução com a captura ligada reabre a câmera com as novas restrições
+for (const id of ["cCamera", "cResolucao"]) {
+  $(id).addEventListener("change", async () => {
+    if (!rodando) return;
+    try { await abrirCamera(); } catch (erro) { explicarErroCamera(erro); parar(); }
+  });
+}
+
+// O iOS pausa ou encerra a câmera quando a página sai da tela; ao voltar, a trava de tela é pedida de
+// novo e a câmera é reaberta (ou apenas retomada, se a trilha ainda estiver viva)
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || !rodando) return;
+  manterTelaLigada();
+  try {
+    if (!cameraAtiva()) await abrirCamera();
+    else if (video.paused) await video.play();
+  } catch (erro) { explicarErroCamera(erro); parar(); }
+});
+
+// Mudanças de tamanho e de orientação: o canvas acompanha a área da prévia
+video.addEventListener("loadedmetadata", ajustarProporcao);
+video.addEventListener("resize", ajustarProporcao);    // dimensões do vídeo mudam ao girar o celular
+window.addEventListener("resize", ajustarCanvas);
+window.addEventListener("orientationchange", () => setTimeout(ajustarProporcao, 300));
+if ("ResizeObserver" in window) new ResizeObserver(ajustarCanvas).observe(previa);
+
+requestAnimationFrame(desenhar);
+contextoSeguro();
+</script>
+</body>
+</html>
